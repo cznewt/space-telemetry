@@ -120,3 +120,20 @@ alert if it grows large (e.g. `> 3` days) — it means the updater hasn't refres
 `satnogs_satellites_refresh_hours`, `pass_lookahead_hours`,
 `sat_pass_cache_ttl_s` — see [Configuration](../configuration.md). Example:
 `examples/weather-satellites.yaml`.
+
+## Dashboard signals
+
+The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
+dashboard and alerts use these signals for this collector (queries rendered from
+the mixin sources):
+
+<!-- signals:start -->
+| Signal | Query | Unit |
+|---|---|---|
+| Satellites tracked | `satellite_tracked_count{job=~"$job", observer=~"$observer"}` | short |
+| Satellite elevation | `satellite_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Satellite altitude | `satellite_altitude_meters{job=~"$job", observer=~"$observer"}` | lengthm |
+| TLE age | `max by (name) (satellite_tle_age_seconds{job=~"$job", observer=~"$observer"})` | s |
+| Next pass max elevation | `satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Satellite sources healthy | `sum(satellite_data_update_success{job=~"$job"})` | short |
+<!-- signals:end -->

@@ -45,3 +45,15 @@ Labels `star,observer`.
 - **Adding stars:** extend `STAR_CATALOG` in
   `space_telemetry/collectors/celestial_bodies/stars.py` with
   `(name, ra_hours, dec_degrees, magnitude)`, then list the name in `stars:`.
+
+## Dashboard signals
+
+The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
+dashboard and alerts use these signals for this collector (queries rendered from
+the mixin sources):
+
+<!-- signals:start -->
+| Signal | Query | Unit |
+|---|---|---|
+| Star altitude | `star_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
+<!-- signals:end -->

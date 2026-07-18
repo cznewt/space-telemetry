@@ -55,3 +55,18 @@ Labels `body,observer` unless noted.
   km, the Sun ~1.0 AU (≈1.5×10¹¹ m).
 - Rise/set can be `None` (metric absent) for circumpolar bodies or when an event
   doesn't occur in the next 24 h.
+
+## Dashboard signals
+
+The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
+dashboard and alerts use these signals for this collector (queries rendered from
+the mixin sources):
+
+<!-- signals:start -->
+| Signal | Query | Unit |
+|---|---|---|
+| Body altitude | `body_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Bodies above horizon | `sum by (observer) (body_above_horizon{job=~"$job", observer=~"$observer"})` | short |
+| Moon illuminated | `moon_illuminated_fraction{job=~"$job", observer=~"$observer"}` | percentunit |
+| Moon phase | `moon_phase_degrees{job=~"$job", observer=~"$observer"}` | degree |
+<!-- signals:end -->

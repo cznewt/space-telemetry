@@ -52,3 +52,19 @@ a minute at the source, so 5 minutes is a reasonable default — lower
 
 `space_weather_enabled`, `space_weather_refresh_minutes` — see
 [Configuration](../configuration.md). Example: `examples/space-weather.yaml`.
+
+## Dashboard signals
+
+The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
+dashboard and alerts use these signals for this collector (queries rendered from
+the mixin sources):
+
+<!-- signals:start -->
+| Signal | Query | Unit |
+|---|---|---|
+| Planetary Kp | `space_weather_planetary_k_index{job=~"$job"}` | short |
+| Solar wind speed | `space_weather_solar_wind_speed_km_per_second{job=~"$job"}` | short |
+| IMF Bz | `space_weather_imf_bz_nanotesla{job=~"$job"}` | short |
+| GOES X-ray flux | `space_weather_goes_xray_flux_watts_per_m2{job=~"$job"}` | short |
+| F10.7 flux | `space_weather_f107_solar_radio_flux{job=~"$job"}` | short |
+<!-- signals:end -->
