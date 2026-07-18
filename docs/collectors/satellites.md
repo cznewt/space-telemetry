@@ -81,6 +81,7 @@ or `satnogs:satellites`.
 | `satellite_transmitter_uplink_hertz` | Transmitter uplink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_transmitter_baud` | Transmitter symbol rate. | baud | ~50 … ~1e6 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_doppler_hertz` | Doppler shift on the downlink at the current range rate. | hertz | ~-1e5 … 1e5 | `norad`, `uuid`, `observer` |
+| `satellite_info` | Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations). | info | 1 | `norad`, `name`, `group` |
 | `satellite_catalog_size` | Number of satellites in the offline catalog. | count | >= 0 | — |
 | `satellite_catalog_with_transmitters` | Catalog satellites that have at least one transmitter. | count | >= 0 | — |
 | `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ groups). | count | >= 0 | `observer` |

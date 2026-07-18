@@ -247,6 +247,12 @@ signals:
     unit: hertz
     range: "~-1e5 … 1e5"
     labels: [norad, uuid, observer]
+  - name: satellite_info
+    collector: satellites
+    description: Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations).
+    unit: info
+    range: "1"
+    labels: [norad, name, group]
   - name: satellite_catalog_size
     collector: satellites
     description: Number of satellites in the offline catalog.

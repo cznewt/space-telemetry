@@ -62,6 +62,165 @@
           }
         }
       },
+      "bygroup": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "count by (group) (satellite_info{job=~\"$job\"})",
+                        "instant": true,
+                        "legendFormat": "{{group}}"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "Tracked satellites per group.",
+          "id": 2,
+          "links": [],
+          "title": "By group",
+          "transparent": false,
+          "vizConfig": {
+            "group": "pieChart",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "iss"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "red",
+                          "mode": "fixed"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "css"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "orange",
+                          "mode": "fixed"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "weather"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "blue",
+                          "mode": "fixed"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "noaa"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "green",
+                          "mode": "fixed"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "goes"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "purple",
+                          "mode": "fixed"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "stations"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "semi-dark-gray",
+                          "mode": "fixed"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "table",
+                  "placement": "right",
+                  "showLegend": true,
+                  "values": [
+                    "value"
+                  ]
+                },
+                "pieType": "donut",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                }
+              }
+            },
+            "version": ""
+          }
+        }
+      },
       "catalog_stat": {
         "kind": "Panel",
         "spec": {
@@ -93,7 +252,7 @@
             }
           },
           "description": "",
-          "id": 2,
+          "id": 3,
           "links": [],
           "title": "Catalog size",
           "transparent": false,
@@ -145,7 +304,7 @@
             }
           },
           "description": "",
-          "id": 3,
+          "id": 4,
           "links": [],
           "title": "Elevation",
           "transparent": false,
@@ -200,7 +359,7 @@
             }
           },
           "description": "",
-          "id": 4,
+          "id": 5,
           "links": [],
           "title": "Next pass max elevation",
           "transparent": false,
@@ -266,6 +425,26 @@
                     },
                     "refId": "lon"
                   }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "max by (name) (satellite_info{group=\"iss\", job=~\"$job\"} * 0 or satellite_info{group=\"css\", job=~\"$job\"} * 1 or satellite_info{group=\"weather\", job=~\"$job\"} * 2 or satellite_info{group=\"noaa\", job=~\"$job\"} * 3 or satellite_info{group=\"goes\", job=~\"$job\"} * 4 or satellite_info{group=\"stations\", job=~\"$job\"} * 5)",
+                        "format": "table",
+                        "instant": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "grp"
+                  }
                 }
               ],
               "queryOptions": {},
@@ -289,10 +468,12 @@
                         "Time": true,
                         "Time #alt": true,
                         "Time #elev": true,
+                        "Time #grp": true,
                         "Time #lat": true,
                         "Time #lon": true
                       },
                       "renameByName": {
+                        "Value #grp": "group",
                         "Value #lat": "latitude",
                         "Value #lon": "longitude"
                       }
@@ -302,8 +483,8 @@
               ]
             }
           },
-          "description": "Current sub-satellite point of each tracked satellite.",
-          "id": 5,
+          "description": "Current sub-satellite point of each tracked satellite, coloured and legended by group.",
+          "id": 6,
           "links": [],
           "title": "Satellite positions \u2014 map",
           "transparent": false,
@@ -312,7 +493,77 @@
             "kind": "VizConfig",
             "spec": {
               "fieldConfig": {
-                "defaults": {},
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "mappings": [
+                    {
+                      "options": {
+                        "0": {
+                          "color": "red",
+                          "index": 0,
+                          "text": "iss"
+                        },
+                        "1": {
+                          "color": "orange",
+                          "index": 1,
+                          "text": "css"
+                        },
+                        "2": {
+                          "color": "blue",
+                          "index": 2,
+                          "text": "weather"
+                        },
+                        "3": {
+                          "color": "green",
+                          "index": 3,
+                          "text": "noaa"
+                        },
+                        "4": {
+                          "color": "purple",
+                          "index": 4,
+                          "text": "goes"
+                        },
+                        "5": {
+                          "color": "semi-dark-gray",
+                          "index": 5,
+                          "text": "stations"
+                        }
+                      },
+                      "type": "value"
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": null
+                      },
+                      {
+                        "color": "orange",
+                        "value": 0.5
+                      },
+                      {
+                        "color": "blue",
+                        "value": 1.5
+                      },
+                      {
+                        "color": "green",
+                        "value": 2.5
+                      },
+                      {
+                        "color": "purple",
+                        "value": 3.5
+                      },
+                      {
+                        "color": "semi-dark-gray",
+                        "value": 4.5
+                      }
+                    ]
+                  }
+                },
                 "overrides": []
               },
               "options": {
@@ -334,7 +585,7 @@
                       "showLegend": true,
                       "style": {
                         "color": {
-                          "fixed": "dark-red"
+                          "field": "group"
                         },
                         "opacity": 0.9,
                         "size": {
@@ -343,16 +594,18 @@
                         "symbol": {
                           "fixed": "img/icons/marker/circle.svg"
                         },
+                        "text": {
+                          "field": "name",
+                          "fixed": "",
+                          "mode": "field"
+                        },
                         "textConfig": {
                           "fontSize": 10,
-                          "offsetY": -10,
+                          "offsetX": 0,
+                          "offsetY": -12,
                           "textAlign": "center",
-                          "textBaseline": "middle"
+                          "textBaseline": "bottom"
                         }
-                      },
-                      "text": {
-                        "field": "name",
-                        "fixed": ""
                       }
                     },
                     "location": {
@@ -463,6 +716,26 @@
                     },
                     "refId": "alt"
                   }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "max by (name, group) (satellite_info{job=~\"$job\"})",
+                        "format": "table",
+                        "instant": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "grp"
+                  }
                 }
               ],
               "queryOptions": {},
@@ -486,8 +759,10 @@
                         "Time": true,
                         "Time #alt": true,
                         "Time #elev": true,
+                        "Time #grp": true,
                         "Time #lat": true,
-                        "Time #lon": true
+                        "Time #lon": true,
+                        "Value #grp": true
                       },
                       "renameByName": {
                         "Value #alt": "altitude",
@@ -501,8 +776,8 @@
               ]
             }
           },
-          "description": "Current sub-satellite point, elevation and altitude per tracked satellite.",
-          "id": 6,
+          "description": "Current sub-satellite point, elevation, altitude and group per tracked satellite.",
+          "id": 7,
           "links": [],
           "title": "Satellite positions",
           "transparent": false,
@@ -551,7 +826,7 @@
             }
           },
           "description": "",
-          "id": 7,
+          "id": 8,
           "links": [],
           "title": "Sources healthy",
           "transparent": false,
@@ -606,7 +881,7 @@
             }
           },
           "description": "",
-          "id": 8,
+          "id": 9,
           "links": [],
           "title": "Source age",
           "transparent": false,
@@ -661,7 +936,7 @@
             }
           },
           "description": "",
-          "id": 9,
+          "id": 10,
           "links": [],
           "title": "Source sync (1 = ok)",
           "transparent": false,
@@ -716,7 +991,7 @@
             }
           },
           "description": "",
-          "id": 10,
+          "id": 11,
           "links": [],
           "title": "TLE age",
           "transparent": false,
@@ -767,7 +1042,7 @@
             }
           },
           "description": "",
-          "id": 11,
+          "id": 12,
           "links": [],
           "title": "Tracked live",
           "transparent": false,
@@ -850,6 +1125,33 @@
                           }
                         },
                         "title": "Overview"
+                      }
+                    },
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "collapse": false,
+                        "layout": {
+                          "kind": "GridLayout",
+                          "spec": {
+                            "items": [
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "bygroup"
+                                  },
+                                  "height": 7,
+                                  "width": 8,
+                                  "x": 0,
+                                  "y": 0
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "title": "By group (colour key for the map)"
                       }
                     },
                     {

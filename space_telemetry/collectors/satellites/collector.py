@@ -113,6 +113,15 @@ class SatelliteCollector:
                 track_lon.add_metric(lv, lon)
         yield from (track_lat, track_lon)
 
+        # Group membership for the map/legend (observer-independent, emit once).
+        info = GaugeMetricFamily("satellite_info",
+                                 "Static satellite info; value is always 1, detail is in the labels.",
+                                 labels=["norad", "name", "group"])
+        if self.providers:
+            for norad, name, group in self.providers[0].infos():
+                info.add_metric([str(norad), name, group], 1.0)
+        yield info
+
         total, with_tx = self.providers[0].catalog().stats() if self.providers else (0, 0)
         size = GaugeMetricFamily("satellite_catalog_size", "Satellites in the offline catalog.")
         size.add_metric([], float(total))

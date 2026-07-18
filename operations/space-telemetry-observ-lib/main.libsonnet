@@ -45,6 +45,9 @@ local satmap = import 'satmap.libsonnet';
         catalog_stat: s.catalogSize.asStat('Catalog size'),
         sat_sources: s.satSourcesOk.asStat('Sources healthy'),
       } },
+      { title: 'By group (colour key for the map)', width: 8, height: 7, elements: {
+        bygroup: satmap.bygroup(satCfg),
+      } },
       { title: 'External data sources (CelesTrak / SatNOGS)', width: 12, height: 6, elements: {
         src_status: s.satSourceOk.asTable('Source sync (1 = ok)'),
         src_age: s.satSourceAge.asTable('Source age'),
