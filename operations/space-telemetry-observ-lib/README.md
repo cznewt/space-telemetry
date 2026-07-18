@@ -32,7 +32,7 @@ are rendered from `signals/space_telemetry.libsonnet` by `render.py` (do not edi
 between the markers by hand — re-render instead).
 
 <!-- signals:start -->
-### Solar-system bodies
+#### Solar-system bodies
 
 | Signal | Query | Unit |
 |---|---|---|
@@ -41,13 +41,13 @@ between the markers by hand — re-render instead).
 | Moon illuminated | `moon_illuminated_fraction{job=~"$job", observer=~"$observer"}` | percentunit |
 | Moon phase | `moon_phase_degrees{job=~"$job", observer=~"$observer"}` | degree |
 
-### Celestial bodies
+#### Celestial bodies
 
 | Signal | Query | Unit |
 |---|---|---|
 | Star altitude | `star_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
 
-### Satellites
+#### Satellites
 
 | Signal | Query | Unit |
 |---|---|---|
@@ -58,7 +58,7 @@ between the markers by hand — re-render instead).
 | Next pass max elevation | `satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
 | Satellite sources healthy | `sum(satellite_data_update_success{job=~"$job"})` | short |
 
-### Space weather
+#### Space weather
 
 | Signal | Query | Unit |
 |---|---|---|
@@ -68,7 +68,7 @@ between the markers by hand — re-render instead).
 | GOES X-ray flux | `space_weather_goes_xray_flux_watts_per_m2{job=~"$job"}` | short |
 | F10.7 flux | `space_weather_f107_solar_radio_flux{job=~"$job"}` | short |
 
-### Health
+#### Health
 
 | Signal | Query | Unit |
 |---|---|---|
