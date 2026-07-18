@@ -41,7 +41,7 @@ def parse_kp(raw: bytes) -> dict:
     if not isinstance(row, dict):
         return {}
     kp = _f(row.get("Kp"))
-    return {"swpc_planetary_k_index": kp} if kp is not None else {}
+    return {"space_weather_planetary_k_index": kp} if kp is not None else {}
 
 
 def parse_wind(raw: bytes) -> dict:
@@ -49,7 +49,7 @@ def parse_wind(raw: bytes) -> dict:
     if not isinstance(row, dict):
         return {}
     speed = _f(row.get("proton_speed"))
-    return {"swpc_solar_wind_speed_km_per_second": speed} if speed is not None else {}
+    return {"space_weather_solar_wind_speed_km_per_second": speed} if speed is not None else {}
 
 
 def parse_mag(raw: bytes) -> dict:
@@ -60,9 +60,9 @@ def parse_mag(raw: bytes) -> dict:
     bz = _f(row.get("bz_gsm"))
     bt = _f(row.get("bt"))
     if bz is not None:
-        out["swpc_imf_bz_nanotesla"] = bz
+        out["space_weather_imf_bz_nanotesla"] = bz
     if bt is not None:
-        out["swpc_imf_bt_nanotesla"] = bt
+        out["space_weather_imf_bt_nanotesla"] = bt
     return out
 
 
@@ -71,7 +71,7 @@ def parse_f107(raw: bytes) -> dict:
     if not isinstance(row, dict):
         return {}
     flux = _f(row.get("flux"))
-    return {"swpc_f107_solar_radio_flux": flux} if flux is not None else {}
+    return {"space_weather_f107_solar_radio_flux": flux} if flux is not None else {}
 
 
 def parse_xray(raw: bytes) -> dict:
@@ -83,4 +83,4 @@ def parse_xray(raw: bytes) -> dict:
     if not longband:
         return {}
     flux = _f(longband[-1].get("flux"))
-    return {"swpc_goes_xray_flux_watts_per_m2": flux} if flux is not None else {}
+    return {"space_weather_goes_xray_flux_watts_per_m2": flux} if flux is not None else {}

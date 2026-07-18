@@ -1,4 +1,4 @@
-# sky › solar-system bodies
+# solar_system_bodies collector
 
 Positions of the Sun, Moon and planets for each observer, from a JPL Development
 Ephemeris (SPICE `.bsp` kernel). These bodies can't be tracked with TLEs — their
@@ -38,6 +38,8 @@ Labels `body,observer` unless noted.
 | `body_next_set_timestamp_seconds` | next set (UNIX seconds) |
 | `moon_illuminated_fraction` | (labels `observer`) lit fraction of the lunar disc, 0..1 |
 | `moon_phase_degrees` | (labels `observer`) 0 = new, 90 = first quarter, 180 = full, 270 = last |
+| `observer_info` | (labels `observer,latitude_deg,longitude_deg,elevation_m`) observer location, value 1 |
+| `body_scrape_duration_seconds` | (no labels) snapshot build time per scrape |
 
 ## Handy derivations
 

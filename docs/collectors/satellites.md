@@ -42,7 +42,7 @@ For each tracked satellite from the observer, at scrape time:
 - **Sub-point** — latitude, longitude, altitude of the point directly below the
   satellite (`wgs84.subpoint`).
 - **Sunlit** — whether the satellite is in sunlight (`is_sunlit`, using the same
-  ephemeris as the sky collector).
+  ephemeris as the solar-system-body collector).
 - **Passes** — `EarthSatellite.find_events` over `pass_lookahead_hours` yields the
   next AOS, LOS and peak elevation above `min_elevation_deg`. Cached per satellite
   for `sat_pass_cache_ttl_s`.
@@ -53,26 +53,46 @@ For each tracked satellite from the observer, at scrape time:
 
 Per tracked satellite — labels `norad,name,observer`:
 
-`satellite_elevation_degrees`, `satellite_azimuth_degrees`,
-`satellite_range_meters`, `satellite_range_rate_meters_per_second`,
-`satellite_subpoint_latitude_degrees`, `satellite_subpoint_longitude_degrees`,
-`satellite_altitude_meters`, `satellite_velocity_meters_per_second`,
-`satellite_above_horizon`, `satellite_sunlit`,
-`satellite_tle_epoch_timestamp_seconds`, `satellite_tle_age_seconds`,
-`satellite_next_pass_aos_timestamp_seconds`,
-`satellite_next_pass_los_timestamp_seconds`,
-`satellite_next_pass_max_elevation_degrees`.
+| Metric | Meaning |
+|---|---|
+| `satellite_elevation_degrees` | elevation above the horizon |
+| `satellite_azimuth_degrees` | azimuth, clockwise from north |
+| `satellite_range_meters` | slant range observer→satellite |
+| `satellite_range_rate_meters_per_second` | range rate (+receding); drives Doppler |
+| `satellite_subpoint_latitude_degrees` | sub-satellite point latitude |
+| `satellite_subpoint_longitude_degrees` | sub-satellite point longitude |
+| `satellite_altitude_meters` | height above the ellipsoid |
+| `satellite_velocity_meters_per_second` | orbital speed |
+| `satellite_above_horizon` | 1 if above the horizon mask |
+| `satellite_sunlit` | 1 if in sunlight |
+| `satellite_tle_epoch_timestamp_seconds` | element-set epoch (UNIX s) |
+| `satellite_tle_age_seconds` | age of the element set |
+| `satellite_next_pass_aos_timestamp_seconds` | next pass AOS (UNIX s) |
+| `satellite_next_pass_los_timestamp_seconds` | next pass LOS (UNIX s) |
+| `satellite_next_pass_max_elevation_degrees` | next pass peak elevation |
 
-Per transmitter — labels `norad,uuid,mode,status` (observer-independent):
-`satellite_transmitter_downlink_hertz`, `satellite_transmitter_uplink_hertz`,
-`satellite_transmitter_baud`; and `satellite_doppler_hertz{norad,uuid,observer}`.
+Per transmitter — labels `norad,uuid,mode,status` (frequencies are observer-independent):
+
+| Metric | Meaning |
+|---|---|
+| `satellite_transmitter_downlink_hertz` | downlink frequency |
+| `satellite_transmitter_uplink_hertz` | uplink frequency |
+| `satellite_transmitter_baud` | symbol rate |
+| `satellite_doppler_hertz` (labels `norad,uuid,observer`) | Doppler shift on the downlink |
 
 Catalog & pipeline health:
-`satellite_catalog_size`, `satellite_catalog_with_transmitters`,
-`satellite_tracked_count{observer}`, and per source
-(`celestrak:<group>`, `satnogs:transmitters`, `satnogs:satellites`):
-`satellite_data_update_success`, `satellite_data_update_timestamp_seconds`,
-`satellite_data_age_seconds`, `satellite_data_fetch_duration_seconds`.
+
+| Metric | Labels | Meaning |
+|---|---|---|
+| `satellite_catalog_size` | — | satellites in the offline catalog |
+| `satellite_catalog_with_transmitters` | — | catalog sats with ≥1 transmitter |
+| `satellite_tracked_count` | `observer` | tracked satellites per observer |
+| `satellite_data_update_success` | `source` | 1 if the last fetch succeeded |
+| `satellite_data_update_timestamp_seconds` | `source` | last successful fetch (UNIX s) |
+| `satellite_data_age_seconds` | `source` | seconds since last fetch |
+| `satellite_data_fetch_duration_seconds` | `source` | last fetch duration |
+
+where `source` is `celestrak:<group>`, `satnogs:transmitters`, or `satnogs:satellites`.
 
 ## Update mechanism
 

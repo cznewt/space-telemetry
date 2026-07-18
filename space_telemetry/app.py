@@ -14,14 +14,16 @@ from .observer import Observer
 from .otel import attach_otel
 from .server import make_server
 from .settings import Settings
-from .collectors.sky.collector import SkyCollector
-from .collectors.sky.snapshot import SkySampler
+from .collectors.solar_system_bodies.collector import BodyCollector
+from .collectors.solar_system_bodies.sampler import BodySampler
+from .collectors.celestial_bodies.collector import StarCollector
+from .collectors.celestial_bodies.sampler import StarSampler
 from .collectors.satellites.collector import SatelliteCollector
 from .collectors.satellites.model import CatalogHolder
 from .collectors.satellites.propagate import SatelliteProvider
 from .collectors.satellites.updater import SatelliteUpdater
-from .collectors.swpc.collector import SWPCCollector
-from .collectors.swpc.updater import SWPCUpdater
+from .collectors.space_weather.collector import SpaceWeatherCollector
+from .collectors.space_weather.updater import SpaceWeatherUpdater
 
 
 def load_timescale_ephemeris(settings: Settings, loader: "Loader | None" = None):
@@ -35,7 +37,7 @@ def _health_json(healths) -> list:
             for h in healths]
 
 
-def _info_fn(settings, observers, sat_providers, sat_updater, swpc_updater):
+def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
     def info() -> dict:
         satellites = {"enabled": settings.sat_enabled}
         if settings.sat_enabled and sat_providers and sat_updater is not None:
@@ -48,11 +50,11 @@ def _info_fn(settings, observers, sat_providers, sat_updater, swpc_updater):
                 "sources": _health_json(sat_updater.health()),
             })
 
-        swpc = {"enabled": settings.swpc_enabled}
-        if settings.swpc_enabled and swpc_updater is not None:
-            swpc.update({
-                "products": swpc_updater.product_keys(),
-                "sources": _health_json(swpc_updater.health()),
+        space_weather = {"enabled": settings.space_weather_enabled}
+        if settings.space_weather_enabled and sw_updater is not None:
+            space_weather.update({
+                "products": sw_updater.product_keys(),
+                "sources": _health_json(sw_updater.health()),
             })
 
         return {
@@ -64,12 +66,10 @@ def _info_fn(settings, observers, sat_providers, sat_updater, swpc_updater):
                 for o in observers
             ],
             "collectors": {
-                "sky": {
-                    "solar_system_bodies": list(settings.bodies),
-                    "celestial_bodies": list(settings.stars),
-                },
+                "solar_system_bodies": list(settings.bodies),
+                "celestial_bodies": list(settings.stars),
                 "satellites": satellites,
-                "swpc": swpc,
+                "space_weather": space_weather,
             },
             "endpoints": ["/metrics", "/status", "/health", "/healthz"],
         }
@@ -84,9 +84,13 @@ def run(settings: "Settings | None" = None) -> None:
     ts, eph = load_timescale_ephemeris(settings)
     observers = [Observer.from_config(c) for c in settings.observer_list()]
 
-    # sky: solar-system bodies + celestial bodies, one sampler per observer
-    sky_samplers = [SkySampler(eph=eph, observer=o, ts=ts, settings=settings) for o in observers]
-    REGISTRY.register(SkyCollector(sky_samplers))
+    body_samplers: list = []
+    if settings.bodies:
+        body_samplers = [BodySampler(eph=eph, observer=o, ts=ts, settings=settings) for o in observers]
+        REGISTRY.register(BodyCollector(body_samplers))
+    if settings.stars:
+        star_samplers = [StarSampler(eph=eph, observer=o, ts=ts, settings=settings) for o in observers]
+        REGISTRY.register(StarCollector(star_samplers))
 
     updaters = []
 
@@ -101,25 +105,25 @@ def run(settings: "Settings | None" = None) -> None:
         sat_updater.start()
         updaters.append(sat_updater)
 
-    swpc_updater = None
-    if settings.swpc_enabled:
-        swpc_updater = SWPCUpdater(settings, FileCache(settings.cache_dir, "swpc"))
-        REGISTRY.register(SWPCCollector(swpc_updater))
-        swpc_updater.bootstrap()
-        swpc_updater.start()
-        updaters.append(swpc_updater)
+    sw_updater = None
+    if settings.space_weather_enabled:
+        sw_updater = SpaceWeatherUpdater(settings, FileCache(settings.cache_dir, "space_weather"))
+        REGISTRY.register(SpaceWeatherCollector(sw_updater))
+        sw_updater.bootstrap()
+        sw_updater.start()
+        updaters.append(sw_updater)
 
     if settings.otlp_endpoint:
-        attach_otel(sky_samplers, settings, sat_providers)
+        attach_otel(body_samplers, settings, sat_providers)
 
     server = make_server(settings.host, settings.port,
-                         _info_fn(settings, observers, sat_providers, sat_updater, swpc_updater))
+                         _info_fn(settings, observers, sat_providers, sat_updater, sw_updater))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "
-        f"sky: {len(settings.bodies)} bodies + {len(settings.stars)} stars | "
-        f"satellites: {'on' if settings.sat_enabled else 'off'} | "
-        f"swpc: {'on' if settings.swpc_enabled else 'off'}",
+        f"solar_system_bodies={len(settings.bodies)} | celestial_bodies={len(settings.stars)} | "
+        f"satellites={'on' if settings.sat_enabled else 'off'} | "
+        f"space_weather={'on' if settings.space_weather_enabled else 'off'}",
         flush=True,
     )
     try:

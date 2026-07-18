@@ -2,7 +2,7 @@
 
 ``prometheus_client.start_http_server`` answers every path with metrics; this
 threading server routes them explicitly and adds a human-readable index that
-reflects the collector hierarchy (sky > solar-system/celestial bodies, satellites, swpc)
+reflects the collectors (solar-system + celestial bodies, satellites, space weather)
 and every configured observer.
 """
 
@@ -48,7 +48,7 @@ def _sources_table(sources) -> str:
 
 def _render_html(info: dict) -> str:
     col = info["collectors"]
-    sky, sat, swpc = col["sky"], col["satellites"], col["swpc"]
+    sat, sw = col["satellites"], col["space_weather"]
 
     observers_html = "<table><tbody>" + "".join(
         f"<tr><td><b>{html.escape(o['name'])}</b></td>"
@@ -57,8 +57,8 @@ def _render_html(info: dict) -> str:
         for o in info["observers"]
     ) + "</tbody></table>"
 
-    ssb = ", ".join(html.escape(b) for b in sky["solar_system_bodies"]) or "—"
-    cb = ", ".join(html.escape(s) for s in sky["celestial_bodies"]) or "—"
+    ssb = ", ".join(html.escape(b) for b in col["solar_system_bodies"]) or "—"
+    cb = ", ".join(html.escape(s) for s in col["celestial_bodies"]) or "—"
 
     if sat.get("enabled"):
         groups = ", ".join(html.escape(g) for g in sat.get("groups", [])) or "—"
@@ -73,15 +73,15 @@ def _render_html(info: dict) -> str:
     else:
         sat_html = "<h2>Satellites</h2><p>disabled</p>"
 
-    if swpc.get("enabled"):
-        products = ", ".join(html.escape(p) for p in swpc.get("products", [])) or "—"
-        swpc_html = (
-            "<h2>Space weather (SWPC)</h2>"
+    if sw.get("enabled"):
+        products = ", ".join(html.escape(p) for p in sw.get("products", [])) or "—"
+        sw_html = (
+            "<h2>Space weather</h2>"
             f"<p>products <code>{products}</code></p>"
-            + _sources_table(swpc.get("sources", []))
+            + _sources_table(sw.get("sources", []))
         )
     else:
-        swpc_html = "<h2>Space weather (SWPC)</h2><p>disabled</p>"
+        sw_html = "<h2>Space weather</h2><p>disabled</p>"
 
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
@@ -90,10 +90,9 @@ def _render_html(info: dict) -> str:
         f'<h1>space-telemetry <span class="v">v{html.escape(info["version"])}</span></h1>'
         '<p class="sub">Prometheus / OTel exporter for space telemetry</p>'
         "<h2>Observers</h2>" + observers_html +
-        "<h2>Sky</h2>"
-        f"<h3>solar-system bodies</h3><p><code>{ssb}</code></p>"
-        f"<h3>celestial bodies</h3><p><code>{cb}</code></p>"
-        + sat_html + swpc_html +
+        f"<h2>Solar-system bodies</h2><p><code>{ssb}</code></p>"
+        f"<h2>Celestial bodies</h2><p><code>{cb}</code></p>"
+        + sat_html + sw_html +
         "<h2>Endpoints</h2><ul>"
         '<li><a href="/metrics">/metrics</a> — Prometheus metrics</li>'
         '<li><a href="/status">/status</a> — status as JSON</li>'

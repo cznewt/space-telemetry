@@ -13,6 +13,6 @@ stars: [sirius, canopus, arcturus, vega, capella, rigel, procyon, betelgeuse,
 ephemeris: de440s.bsp                       # 1849–2150, ~32 MB (de421 is smaller, 1900–2050)
 
 sat_enabled: false
-swpc_enabled: false
+space_weather_enabled: false
 
 port: 9110

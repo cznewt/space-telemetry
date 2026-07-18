@@ -15,6 +15,6 @@ sat_enabled: true
 sat_groups: [stations, amateur]
 sat_watchlist: [25544, 33591]              # ISS, NOAA-19
 
-swpc_enabled: true                         # space weather is global (no observer label)
+space_weather_enabled: true                         # space weather is global (no observer label)
 
 port: 9110

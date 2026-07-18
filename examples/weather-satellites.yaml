@@ -18,6 +18,6 @@ pass_lookahead_hours: 24
 bodies: [sun, moon]
 stars: []
 
-swpc_enabled: true
+space_weather_enabled: true
 
 port: 9110

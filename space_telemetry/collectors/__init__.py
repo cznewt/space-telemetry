@@ -1,5 +1,7 @@
 """Collector modules. Each subpackage exposes metrics for one domain.
 
-  sky/   solar-system bodies (ephemeris) + satellites (TLE/OMM)   [this slice: bodies]
-  swpc/  NASA Space Weather Prediction Center                     [planned sibling]
+  solar_system_bodies/  Sun, Moon, planets (JPL ephemeris)
+  celestial_bodies/     bright stars (offline catalog)
+  satellites/           TLE/OMM -> SGP4 + SatNOGS transmitters
+  space_weather/        NOAA SWPC (space weather)
 """

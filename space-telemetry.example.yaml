@@ -29,8 +29,8 @@ sat_watchlist: [25544]
 tle_refresh_hours: 8
 
 # Space weather
-swpc_enabled: true
-swpc_refresh_minutes: 5
+space_weather_enabled: true
+space_weather_refresh_minutes: 5
 
 # Serving
 host: 0.0.0.0

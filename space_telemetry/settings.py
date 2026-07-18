@@ -64,11 +64,11 @@ class Settings(BaseSettings):
     observer_elevation_m: float = 200.0      # metres above sea level (NOT an angle)
     observers: list[ObserverConfig] = []     # JSON list; overrides the observer_* fields when set
 
-    # --- Sky: solar-system bodies ---
+    # --- Solar-system bodies ---
     bodies: Annotated[list[str], NoDecode] = _DEFAULT_BODIES
     min_elevation_deg: float = 0.0           # horizon mask (bodies, stars, satellite passes)
 
-    # --- Sky: celestial bodies (stars) ---
+    # --- Celestial bodies (stars) ---
     stars: Annotated[list[str], NoDecode] = _DEFAULT_STARS
 
     # --- Ephemeris / cache ---
@@ -92,9 +92,9 @@ class Settings(BaseSettings):
     pass_lookahead_hours: float = 24.0
     sat_pass_cache_ttl_s: float = 60.0
 
-    # --- SWPC (NOAA space weather) ---
-    swpc_enabled: bool = True
-    swpc_refresh_minutes: float = 5.0
+    # --- Space weather (NOAA SWPC) ---
+    space_weather_enabled: bool = True
+    space_weather_refresh_minutes: float = 5.0
 
     # --- Shared HTTP client (satellites + swpc updaters) ---
     http_timeout_s: float = 30.0

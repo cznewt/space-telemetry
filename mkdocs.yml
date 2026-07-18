@@ -34,11 +34,10 @@ nav:
   - Configuration: configuration.md
   - Deployment: deployment.md
   - Collectors:
-      - sky: collectors/sky.md
-      - Solar-system bodies: collectors/solar-system-bodies.md
-      - Celestial bodies: collectors/celestial-bodies.md
+      - Solar-system bodies: collectors/solar_system_bodies.md
+      - Celestial bodies: collectors/celestial_bodies.md
       - Satellites: collectors/satellites.md
-      - Space weather (SWPC): collectors/swpc.md
+      - Space weather: collectors/space_weather.md
 
 markdown_extensions:
   - admonition

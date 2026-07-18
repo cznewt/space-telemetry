@@ -1,9 +1,10 @@
-# sky › celestial bodies (stars)
+# celestial_bodies collector
 
 Positions of bright stars for each observer, from a small built-in catalog. A
 star's ICRS/J2000 right ascension and declination are effectively fixed, so this
-family needs **no ephemeris and no network** — positions are computed 100%
-offline via Skyfield `Star` targets.
+collector needs **no data of its own and no network** — positions are computed
+offline via Skyfield `Star` targets (reusing the ephemeris only for Earth's
+position when observing).
 
 ## Catalog
 
@@ -33,6 +34,7 @@ Labels `star,observer`.
 | `star_magnitude` | apparent visual magnitude (catalog constant) |
 | `star_next_rise_timestamp_seconds` | next rise (UNIX seconds) |
 | `star_next_set_timestamp_seconds` | next set (UNIX seconds) |
+| `star_scrape_duration_seconds` | (no labels) snapshot build time per scrape |
 
 ## Notes
 
@@ -41,5 +43,5 @@ Labels `star,observer`.
 - Circumpolar stars (e.g. Polaris at high northern latitudes) never set, so their
   rise/set metrics are absent.
 - **Adding stars:** extend `STAR_CATALOG` in
-  `space_telemetry/collectors/sky/celestial_bodies/stars.py` with
+  `space_telemetry/collectors/celestial_bodies/stars.py` with
   `(name, ra_hours, dec_degrees, magnitude)`, then list the name in `stars:`.

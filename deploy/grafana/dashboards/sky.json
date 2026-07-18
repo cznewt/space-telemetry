@@ -1,6 +1,6 @@
 {
   "uid": "sky-overview",
-  "title": "Space Telemetry — Sky",
+  "title": "Space Telemetry",
   "tags": ["space-telemetry"],
   "editable": true,
   "schemaVersion": 39,
@@ -149,7 +149,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "swpc_planetary_k_index", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "space_weather_planetary_k_index", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "decimals": 1, "min": 0, "max": 9, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 5 }, { "color": "red", "value": 7 } ] } }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "background", "graphMode": "none", "textMode": "auto", "justifyMode": "auto" }
@@ -161,7 +161,7 @@
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "swpc_solar_wind_speed_km_per_second", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "space_weather_solar_wind_speed_km_per_second", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "colorMode": "value", "graphMode": "area", "textMode": "auto", "justifyMode": "auto" }
@@ -173,7 +173,7 @@
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "swpc_imf_bz_nanotesla", "legendFormat": "Bz", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "space_weather_imf_bz_nanotesla", "legendFormat": "Bz", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "single", "sort": "none" } }
@@ -185,7 +185,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "swpc_goes_xray_flux_watts_per_m2", "legendFormat": "0.1-0.8 nm", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "space_weather_goes_xray_flux_watts_per_m2", "legendFormat": "0.1-0.8 nm", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "fillOpacity": 0, "showPoints": "never", "scaleDistribution": { "type": "log", "log": 10 } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }, "tooltip": { "mode": "single", "sort": "none" } }

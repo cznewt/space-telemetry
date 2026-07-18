@@ -15,7 +15,7 @@ sat_enabled: true
 sat_groups: [stations]
 sat_watchlist: [25544]                     # ISS
 
-swpc_enabled: true
+space_weather_enabled: true
 
 host: 0.0.0.0
 port: 9110

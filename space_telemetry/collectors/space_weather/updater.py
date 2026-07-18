@@ -1,8 +1,8 @@
-"""Background refresh for NOAA SWPC products (offline-first).
+"""Background refresh for NOAA space-weather products (offline-first).
 
 A daemon thread refreshes each product when it is *due* (every
-``swpc_refresh_minutes``) via a conditional request, caches the raw JSON, and
-parses the latest value(s) into an in-memory snapshot that the collector reads.
+``space_weather_refresh_minutes``) via a conditional request, caches the raw JSON,
+and parses the latest value(s) into an in-memory snapshot that the collector reads.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class SourceHealth:
     error: Optional[str]
 
 
-class SWPCUpdater:
+class SpaceWeatherUpdater:
     def __init__(self, settings, cache: FileCache, tick_s: float = 60.0):
         self.settings = settings
         self.cache = cache
@@ -50,7 +50,7 @@ class SWPCUpdater:
             self._parse_into_latest(key, filename, parser)
 
     def start(self) -> None:
-        self._thread = threading.Thread(target=self._loop, name="swpc-updater", daemon=True)
+        self._thread = threading.Thread(target=self._loop, name="space-weather-updater", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
@@ -61,14 +61,14 @@ class SWPCUpdater:
             try:
                 self._refresh_due()
             except Exception as exc:
-                print(f"[swpc-updater] cycle error: {exc}", flush=True)
+                print(f"[space-weather-updater] cycle error: {exc}", flush=True)
             if self._stop.wait(self._tick_s):
                 break
 
     # --- refresh ---
     def _due(self, key) -> bool:
-        last = self.cache.meta_get(f"swpc:{key}").get("last_success_ts")
-        return last is None or (time() - last) >= self.settings.swpc_refresh_minutes * 60.0
+        last = self.cache.meta_get(key).get("last_success_ts")
+        return last is None or (time() - last) >= self.settings.space_weather_refresh_minutes * 60.0
 
     def _refresh_due(self) -> None:
         for key, url, filename, parser in self._products:
@@ -76,32 +76,31 @@ class SWPCUpdater:
                 self._fetch(key, url, filename, parser)
 
     def _fetch(self, key, url, filename, parser) -> None:
-        mkey = f"swpc:{key}"
-        meta = self.cache.meta_get(mkey)
+        meta = self.cache.meta_get(key)
         t0 = time()
         try:
             res = conditional_get(url, meta.get("etag"), meta.get("last_modified"),
                                   self.settings.user_agent, self.settings.http_timeout_s)
         except Exception as exc:
-            self._errors[mkey] = str(exc)
-            self.cache.meta_set(mkey, {"last_status": 0, "success": False})
-            print(f"[swpc-updater] {key} fetch failed: {exc}", flush=True)
+            self._errors[key] = str(exc)
+            self.cache.meta_set(key, {"last_status": 0, "success": False})
+            print(f"[space-weather-updater] {key} fetch failed: {exc}", flush=True)
             return
 
         duration = time() - t0
-        self._errors[mkey] = None
+        self._errors[key] = None
         if res.not_modified:
-            self.cache.meta_set(mkey, {"last_success_ts": time(), "last_status": 304,
-                                       "fetch_duration_s": duration, "success": True})
+            self.cache.meta_set(key, {"last_success_ts": time(), "last_status": 304,
+                                      "fetch_duration_s": duration, "success": True})
             return
 
         self.cache.write_atomic(filename, res.data)
-        self.cache.meta_set(mkey, {"file": filename, "last_success_ts": time(),
-                                   "last_status": res.status, "etag": res.etag,
-                                   "last_modified": res.last_modified, "bytes": len(res.data),
-                                   "fetch_duration_s": duration, "success": True})
+        self.cache.meta_set(key, {"file": filename, "last_success_ts": time(),
+                                  "last_status": res.status, "etag": res.etag,
+                                  "last_modified": res.last_modified, "bytes": len(res.data),
+                                  "fetch_duration_s": duration, "success": True})
         self._parse_into_latest(key, filename, parser)
-        print(f"[swpc-updater] {key}: {len(res.data)} bytes", flush=True)
+        print(f"[space-weather-updater] {key}: {len(res.data)} bytes", flush=True)
 
     def _parse_into_latest(self, key, filename, parser) -> None:
         raw = self.cache.read(filename)
@@ -110,7 +109,7 @@ class SWPCUpdater:
         try:
             values = parser(raw)
         except Exception as exc:
-            print(f"[swpc-updater] {key} parse failed: {exc}", flush=True)
+            print(f"[space-weather-updater] {key} parse failed: {exc}", flush=True)
             return
         with self._lock:
             self._latest.update(values)
@@ -124,16 +123,15 @@ class SWPCUpdater:
         now = time()
         out = []
         for key, _url, _file, _parser in self._products:
-            mkey = f"swpc:{key}"
-            m = self.cache.meta_get(mkey)
+            m = self.cache.meta_get(key)
             last = m.get("last_success_ts")
             out.append(SourceHealth(
-                source=mkey,
+                source=key,
                 success=bool(m.get("success")),
                 last_success_ts=last,
                 last_status=m.get("last_status"),
                 age_s=(now - last) if last else None,
                 fetch_duration_s=m.get("fetch_duration_s"),
-                error=self._errors.get(mkey),
+                error=self._errors.get(key),
             ))
         return out

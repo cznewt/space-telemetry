@@ -57,8 +57,8 @@ SPACE_TELEMETRY_OBSERVERS='[{"name":"prague","latitude_deg":50.07,"longitude_deg
 ### Sky
 | Field | Default | Notes |
 |---|---|---|
-| `bodies` | sun,moon,mercury,venus,mars,jupiter,saturn | see [solar-system bodies](collectors/solar-system-bodies.md) |
-| `stars` | sirius,vega,arcturus,capella,rigel,betelgeuse,aldebaran,polaris | see [celestial bodies](collectors/celestial-bodies.md) |
+| `bodies` | sun,moon,mercury,venus,mars,jupiter,saturn | see [solar_system_bodies](collectors/solar_system_bodies.md) |
+| `stars` | sirius,vega,arcturus,capella,rigel,betelgeuse,aldebaran,polaris | see [celestial_bodies](collectors/celestial_bodies.md) |
 | `min_elevation_deg` | `0` | horizon mask for `above_horizon`, rise/set, satellite passes |
 | `ephemeris` | `de421.bsp` | JPL kernel (downloaded once) |
 | `cache_dir` | `data` | where kernels + satellite/swpc caches live |
@@ -77,11 +77,11 @@ SPACE_TELEMETRY_OBSERVERS='[{"name":"prague","latitude_deg":50.07,"longitude_deg
 | `pass_lookahead_hours` | `24` | next-pass search window |
 | `sat_pass_cache_ttl_s` | `60` | how long per-satellite pass results are reused |
 
-### SWPC
+### Space weather
 | Field | Default | Notes |
 |---|---|---|
-| `swpc_enabled` | `true` | turn space weather off with `false` |
-| `swpc_refresh_minutes` | `5` | product refresh cadence |
+| `space_weather_enabled` | `true` | turn space weather off with `false` |
+| `space_weather_refresh_minutes` | `5` | product refresh cadence |
 
 ### Serving + HTTP client
 | Field | Default | Notes |
