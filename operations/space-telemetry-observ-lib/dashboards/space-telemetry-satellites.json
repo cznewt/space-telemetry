@@ -2,7 +2,7 @@
   "apiVersion": "dashboard.grafana.app/v2beta1",
   "kind": "Dashboard",
   "metadata": {
-    "name": "space-telemetry"
+    "name": "space-telemetry-satellites"
   },
   "spec": {
     "annotations": [],
@@ -10,7 +10,7 @@
     "description": "",
     "editable": true,
     "elements": {
-      "altitude": {
+      "alt_ts": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -28,7 +28,8 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\"}"
+                        "expr": "satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\", name=~\"$name\"}",
+                        "legendFormat": "{{name}}"
                       },
                       "version": "v0"
                     },
@@ -43,7 +44,7 @@
           "description": "",
           "id": 1,
           "links": [],
-          "title": "Satellite altitude",
+          "title": "Altitude",
           "transparent": false,
           "vizConfig": {
             "group": "timeseries",
@@ -61,7 +62,7 @@
           }
         }
       },
-      "bz": {
+      "catalog_stat": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -79,7 +80,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "space_weather_imf_bz_nanotesla{job=~\"$job\"}"
+                        "expr": "satellite_catalog_size{job=~\"$job\"}"
                       },
                       "version": "v0"
                     },
@@ -94,109 +95,7 @@
           "description": "",
           "id": 2,
           "links": [],
-          "title": "IMF Bz (nT)",
-          "transparent": false,
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "elevation": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 3,
-          "links": [],
-          "title": "Satellite elevation",
-          "transparent": false,
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "degree"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "f107": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "space_weather_f107_solar_radio_flux{job=~\"$job\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 4,
-          "links": [],
-          "title": "F10.7 flux",
+          "title": "Catalog size",
           "transparent": false,
           "vizConfig": {
             "group": "stat",
@@ -214,7 +113,7 @@
           }
         }
       },
-      "kp": {
+      "elev_ts": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -232,7 +131,8 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "space_weather_planetary_k_index{job=~\"$job\"}"
+                        "expr": "satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\", name=~\"$name\"}",
+                        "legendFormat": "{{name}}"
                       },
                       "version": "v0"
                     },
@@ -245,9 +145,9 @@
             }
           },
           "description": "",
-          "id": 5,
+          "id": 3,
           "links": [],
-          "title": "Planetary Kp",
+          "title": "Elevation",
           "transparent": false,
           "vizConfig": {
             "group": "timeseries",
@@ -255,7 +155,7 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
-                  "unit": "short"
+                  "unit": "degree"
                 },
                 "overrides": []
               },
@@ -265,7 +165,7 @@
           }
         }
       },
-      "map": {
+      "pass_table": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -283,10 +183,64 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "satellite_track_latitude_degrees{job=~\"$job\"}",
+                        "expr": "max by (name) (satellite_next_pass_max_elevation_degrees{job=~\"$job\", observer=~\"$observer\"})",
                         "format": "table",
                         "instant": true,
+                        "legendFormat": "{{name}}",
                         "range": false
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 4,
+          "links": [],
+          "title": "Next pass max elevation",
+          "transparent": false,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "degree"
+                },
+                "overrides": []
+              },
+              "options": {}
+            },
+            "version": ""
+          }
+        }
+      },
+      "posmap": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "max by (name) (satellite_subpoint_latitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "format": "table",
+                        "instant": true
                       },
                       "version": "v0"
                     },
@@ -304,10 +258,9 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "satellite_track_longitude_degrees{job=~\"$job\"}",
+                        "expr": "max by (name) (satellite_subpoint_longitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
                         "format": "table",
-                        "instant": true,
-                        "range": false
+                        "instant": true
                       },
                       "version": "v0"
                     },
@@ -318,15 +271,12 @@
               "queryOptions": {},
               "transformations": [
                 {
-                  "kind": "joinByLabels",
+                  "kind": "joinByField",
                   "spec": {
-                    "id": "joinByLabels",
+                    "id": "joinByField",
                     "options": {
-                      "join": [
-                        "name",
-                        "offset"
-                      ],
-                      "value": "Value"
+                      "byField": "name",
+                      "mode": "outer"
                     }
                   }
                 },
@@ -335,9 +285,16 @@
                   "spec": {
                     "id": "organize",
                     "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "Time #alt": true,
+                        "Time #elev": true,
+                        "Time #lat": true,
+                        "Time #lon": true
+                      },
                       "renameByName": {
-                        "satellite_track_latitude_degrees": "latitude",
-                        "satellite_track_longitude_degrees": "longitude"
+                        "Value #lat": "latitude",
+                        "Value #lon": "longitude"
                       }
                     }
                   }
@@ -345,10 +302,10 @@
               ]
             }
           },
-          "description": "Sub-satellite point at each time offset (-1h \u2026 +1h) for the tracked satellites.",
-          "id": 6,
+          "description": "Current sub-satellite point of each tracked satellite.",
+          "id": 5,
           "links": [],
-          "title": "Satellite ground track",
+          "title": "Satellite positions \u2014 map",
           "transparent": false,
           "vizConfig": {
             "group": "geomap",
@@ -377,34 +334,31 @@
                       "showLegend": true,
                       "style": {
                         "color": {
-                          "fixed": "dark-blue"
+                          "fixed": "dark-red"
                         },
-                        "opacity": 0.8,
+                        "opacity": 0.9,
                         "size": {
-                          "fixed": 6
+                          "fixed": 7
                         },
                         "symbol": {
                           "fixed": "img/icons/marker/circle.svg"
                         },
                         "textConfig": {
                           "fontSize": 10,
-                          "offsetX": 0,
-                          "offsetY": -9,
+                          "offsetY": -10,
                           "textAlign": "center",
                           "textBaseline": "middle"
                         }
                       },
                       "text": {
-                        "field": "offset",
+                        "field": "name",
                         "fixed": ""
                       }
                     },
                     "location": {
-                      "latitude": "latitude",
-                      "longitude": "longitude",
-                      "mode": "coords"
+                      "mode": "auto"
                     },
-                    "name": "ground track",
+                    "name": "satellites",
                     "type": "markers"
                   }
                 ],
@@ -423,7 +377,7 @@
           }
         }
       },
-      "moon": {
+      "postable": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -441,85 +395,123 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "moon_illuminated_fraction{job=~\"$job\", observer=~\"$observer\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 7,
-          "links": [],
-          "title": "Moon illuminated",
-          "transparent": false,
-          "vizConfig": {
-            "group": "stat",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "percentunit"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "next_pass": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "satellite_next_pass_max_elevation_degrees{job=~\"$job\", observer=~\"$observer\"}",
+                        "expr": "max by (name) (satellite_subpoint_latitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
                         "format": "table",
-                        "instant": true,
-                        "range": false
+                        "instant": true
                       },
                       "version": "v0"
                     },
-                    "refId": "A"
+                    "refId": "lat"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "max by (name) (satellite_subpoint_longitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "format": "table",
+                        "instant": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "lon"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "max by (name) (satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "format": "table",
+                        "instant": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "elev"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "max by (name) (satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\"})",
+                        "format": "table",
+                        "instant": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "alt"
                   }
                 }
               ],
               "queryOptions": {},
-              "transformations": []
+              "transformations": [
+                {
+                  "kind": "joinByField",
+                  "spec": {
+                    "id": "joinByField",
+                    "options": {
+                      "byField": "name",
+                      "mode": "outer"
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "Time #alt": true,
+                        "Time #elev": true,
+                        "Time #lat": true,
+                        "Time #lon": true
+                      },
+                      "renameByName": {
+                        "Value #alt": "altitude",
+                        "Value #elev": "elevation",
+                        "Value #lat": "latitude",
+                        "Value #lon": "longitude"
+                      }
+                    }
+                  }
+                }
+              ]
             }
           },
-          "description": "",
-          "id": 8,
+          "description": "Current sub-satellite point, elevation and altitude per tracked satellite.",
+          "id": 6,
           "links": [],
-          "title": "Next pass max elevation",
+          "title": "Satellite positions",
           "transparent": false,
           "vizConfig": {
             "group": "table",
             "kind": "VizConfig",
             "spec": {
               "fieldConfig": {
-                "defaults": {
-                  "unit": "degree"
-                },
+                "defaults": {},
                 "overrides": []
               },
               "options": {}
@@ -528,58 +520,7 @@
           }
         }
       },
-      "scrape": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "satellite_scrape_duration_seconds{job=~\"$job\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 9,
-          "links": [],
-          "title": "Scrape duration",
-          "transparent": false,
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "s"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "sources": {
+      "sat_sources": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -610,9 +551,9 @@
             }
           },
           "description": "",
-          "id": 10,
+          "id": 7,
           "links": [],
-          "title": "Satellite sources healthy",
+          "title": "Sources healthy",
           "transparent": false,
           "vizConfig": {
             "group": "stat",
@@ -630,7 +571,7 @@
           }
         }
       },
-      "star_altitude": {
+      "src_age": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -648,7 +589,11 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "star_altitude_degrees{job=~\"$job\", observer=~\"$observer\"}"
+                        "expr": "satellite_data_age_seconds{job=~\"$job\"}",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "{{source}}",
+                        "range": false
                       },
                       "version": "v0"
                     },
@@ -661,17 +606,17 @@
             }
           },
           "description": "",
-          "id": 11,
+          "id": 8,
           "links": [],
-          "title": "Star altitude",
+          "title": "Source age",
           "transparent": false,
           "vizConfig": {
-            "group": "timeseries",
+            "group": "table",
             "kind": "VizConfig",
             "spec": {
               "fieldConfig": {
                 "defaults": {
-                  "unit": "degree"
+                  "unit": "s"
                 },
                 "overrides": []
               },
@@ -681,7 +626,62 @@
           }
         }
       },
-      "tle_age": {
+      "src_status": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "expr": "satellite_data_update_success{job=~\"$job\"}",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "{{source}}",
+                        "range": false
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 9,
+          "links": [],
+          "title": "Source sync (1 = ok)",
+          "transparent": false,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "options": {}
+            },
+            "version": ""
+          }
+        }
+      },
+      "tle_table": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -702,6 +702,7 @@
                         "expr": "max by (name) (satellite_tle_age_seconds{job=~\"$job\", observer=~\"$observer\"})",
                         "format": "table",
                         "instant": true,
+                        "legendFormat": "{{name}}",
                         "range": false
                       },
                       "version": "v0"
@@ -715,9 +716,9 @@
             }
           },
           "description": "",
-          "id": 12,
+          "id": 10,
           "links": [],
-          "title": "TLE age by satellite",
+          "title": "TLE age",
           "transparent": false,
           "vizConfig": {
             "group": "table",
@@ -735,7 +736,7 @@
           }
         }
       },
-      "tracked": {
+      "tracked_stat": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -766,165 +767,12 @@
             }
           },
           "description": "",
-          "id": 13,
+          "id": 11,
           "links": [],
-          "title": "Satellites tracked",
+          "title": "Tracked live",
           "transparent": false,
           "vizConfig": {
             "group": "stat",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "up": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "up{job=~\"$job\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 14,
-          "links": [],
-          "title": "Exporter up",
-          "transparent": false,
-          "vizConfig": {
-            "group": "stat",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "wind": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "space_weather_solar_wind_speed_km_per_second{job=~\"$job\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 15,
-          "links": [],
-          "title": "Solar wind speed (km/s)",
-          "transparent": false,
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "short"
-                },
-                "overrides": []
-              },
-              "options": {}
-            },
-            "version": ""
-          }
-        }
-      },
-      "xray": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "expr": "space_weather_goes_xray_flux_watts_per_m2{job=~\"$job\"}"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 16,
-          "links": [],
-          "title": "GOES X-ray flux",
-          "transparent": false,
-          "vizConfig": {
-            "group": "timeseries",
             "kind": "VizConfig",
             "spec": {
               "fieldConfig": {
@@ -941,200 +789,187 @@
       }
     },
     "layout": {
-      "kind": "RowsLayout",
+      "kind": "TabsLayout",
       "spec": {
-        "rows": [
+        "tabs": [
           {
-            "kind": "RowsLayoutRow",
+            "kind": "TabsLayoutTab",
             "spec": {
-              "collapse": false,
               "layout": {
-                "kind": "GridLayout",
+                "kind": "RowsLayout",
                 "spec": {
-                  "items": [
+                  "rows": [
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "kp"
+                        "collapse": false,
+                        "layout": {
+                          "kind": "GridLayout",
+                          "spec": {
+                            "items": [
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "catalog_stat"
+                                  },
+                                  "height": 5,
+                                  "width": 4,
+                                  "x": 0,
+                                  "y": 0
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "sat_sources"
+                                  },
+                                  "height": 5,
+                                  "width": 4,
+                                  "x": 4,
+                                  "y": 0
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "tracked_stat"
+                                  },
+                                  "height": 5,
+                                  "width": 4,
+                                  "x": 8,
+                                  "y": 0
+                                }
+                              }
+                            ]
+                          }
                         },
-                        "height": 6,
-                        "width": 6,
-                        "x": 0,
-                        "y": 0
+                        "title": "Overview"
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "tracked"
+                        "collapse": false,
+                        "layout": {
+                          "kind": "GridLayout",
+                          "spec": {
+                            "items": [
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "src_age"
+                                  },
+                                  "height": 6,
+                                  "width": 12,
+                                  "x": 0,
+                                  "y": 0
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "src_status"
+                                  },
+                                  "height": 6,
+                                  "width": 12,
+                                  "x": 12,
+                                  "y": 0
+                                }
+                              }
+                            ]
+                          }
                         },
-                        "height": 6,
-                        "width": 6,
-                        "x": 6,
-                        "y": 0
+                        "title": "External data sources (CelesTrak / SatNOGS)"
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "up"
+                        "collapse": false,
+                        "layout": {
+                          "kind": "GridLayout",
+                          "spec": {
+                            "items": [
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "alt_ts"
+                                  },
+                                  "height": 8,
+                                  "width": 12,
+                                  "x": 0,
+                                  "y": 0
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "elev_ts"
+                                  },
+                                  "height": 8,
+                                  "width": 12,
+                                  "x": 12,
+                                  "y": 0
+                                }
+                              }
+                            ]
+                          }
                         },
-                        "height": 6,
-                        "width": 6,
-                        "x": 12,
-                        "y": 0
+                        "title": "Live (filtered by $name)"
                       }
                     },
                     {
-                      "kind": "GridLayoutItem",
+                      "kind": "RowsLayoutRow",
                       "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "wind"
+                        "collapse": false,
+                        "layout": {
+                          "kind": "GridLayout",
+                          "spec": {
+                            "items": [
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "pass_table"
+                                  },
+                                  "height": 8,
+                                  "width": 12,
+                                  "x": 0,
+                                  "y": 0
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "tle_table"
+                                  },
+                                  "height": 8,
+                                  "width": 12,
+                                  "x": 12,
+                                  "y": 0
+                                }
+                              }
+                            ]
+                          }
                         },
-                        "height": 6,
-                        "width": 6,
-                        "x": 18,
-                        "y": 0
-                      }
-                    }
-                  ]
-                }
-              },
-              "title": "Overview"
-            }
-          },
-          {
-            "kind": "RowsLayoutRow",
-            "spec": {
-              "collapse": false,
-              "layout": {
-                "kind": "GridLayout",
-                "spec": {
-                  "items": [
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "altitude"
-                        },
-                        "height": 8,
-                        "width": 12,
-                        "x": 0,
-                        "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "moon"
-                        },
-                        "height": 8,
-                        "width": 12,
-                        "x": 12,
-                        "y": 0
-                      }
-                    }
-                  ]
-                }
-              },
-              "title": "Solar-system bodies"
-            }
-          },
-          {
-            "kind": "RowsLayoutRow",
-            "spec": {
-              "collapse": false,
-              "layout": {
-                "kind": "GridLayout",
-                "spec": {
-                  "items": [
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "star_altitude"
-                        },
-                        "height": 8,
-                        "width": 24,
-                        "x": 0,
-                        "y": 0
-                      }
-                    }
-                  ]
-                }
-              },
-              "title": "Celestial bodies"
-            }
-          },
-          {
-            "kind": "RowsLayoutRow",
-            "spec": {
-              "collapse": false,
-              "layout": {
-                "kind": "GridLayout",
-                "spec": {
-                  "items": [
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "altitude"
-                        },
-                        "height": 8,
-                        "width": 12,
-                        "x": 0,
-                        "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "elevation"
-                        },
-                        "height": 8,
-                        "width": 12,
-                        "x": 12,
-                        "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "next_pass"
-                        },
-                        "height": 8,
-                        "width": 12,
-                        "x": 0,
-                        "y": 8
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "tle_age"
-                        },
-                        "height": 8,
-                        "width": 12,
-                        "x": 12,
-                        "y": 8
+                        "title": "Passes"
                       }
                     }
                   ]
@@ -1144,9 +979,23 @@
             }
           },
           {
-            "kind": "RowsLayoutRow",
+            "kind": "TabsLayoutTab",
             "spec": {
-              "collapse": false,
+              "conditionalRendering": {
+                "kind": "ConditionalRenderingGroup",
+                "spec": {
+                  "condition": "and",
+                  "items": [
+                    {
+                      "kind": "ConditionalRenderingData",
+                      "spec": {
+                        "value": true
+                      }
+                    }
+                  ],
+                  "visibility": "show"
+                }
+              },
               "layout": {
                 "kind": "GridLayout",
                 "spec": {
@@ -1156,9 +1005,9 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "map"
+                          "name": "posmap"
                         },
-                        "height": 12,
+                        "height": 16,
                         "width": 24,
                         "x": 0,
                         "y": 0
@@ -1167,13 +1016,27 @@
                   ]
                 }
               },
-              "title": "Satellite ground track"
+              "title": "Positions \u2014 map"
             }
           },
           {
-            "kind": "RowsLayoutRow",
+            "kind": "TabsLayoutTab",
             "spec": {
-              "collapse": false,
+              "conditionalRendering": {
+                "kind": "ConditionalRenderingGroup",
+                "spec": {
+                  "condition": "and",
+                  "items": [
+                    {
+                      "kind": "ConditionalRenderingData",
+                      "spec": {
+                        "value": true
+                      }
+                    }
+                  ],
+                  "visibility": "show"
+                }
+              },
               "layout": {
                 "kind": "GridLayout",
                 "spec": {
@@ -1183,110 +1046,18 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "bz"
+                          "name": "postable"
                         },
-                        "height": 7,
-                        "width": 12,
+                        "height": 16,
+                        "width": 24,
                         "x": 0,
-                        "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "f107"
-                        },
-                        "height": 7,
-                        "width": 12,
-                        "x": 12,
-                        "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "kp"
-                        },
-                        "height": 7,
-                        "width": 12,
-                        "x": 0,
-                        "y": 7
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "wind"
-                        },
-                        "height": 7,
-                        "width": 12,
-                        "x": 12,
-                        "y": 7
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "xray"
-                        },
-                        "height": 7,
-                        "width": 12,
-                        "x": 0,
-                        "y": 14
-                      }
-                    }
-                  ]
-                }
-              },
-              "title": "Space weather"
-            }
-          },
-          {
-            "kind": "RowsLayoutRow",
-            "spec": {
-              "collapse": false,
-              "layout": {
-                "kind": "GridLayout",
-                "spec": {
-                  "items": [
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "scrape"
-                        },
-                        "height": 6,
-                        "width": 12,
-                        "x": 0,
-                        "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "sources"
-                        },
-                        "height": 6,
-                        "width": 12,
-                        "x": 12,
                         "y": 0
                       }
                     }
                   ]
                 }
               },
-              "title": "Health"
+              "title": "Positions \u2014 table"
             }
           }
         ]
@@ -1297,15 +1068,14 @@
     "preload": false,
     "tags": [
       "space-telemetry",
-      "astronomy",
-      "space-weather"
+      "satellites"
     ],
     "timeSettings": {
       "autoRefresh": "",
       "from": "now-6h",
       "to": "now"
     },
-    "title": "Space Telemetry",
+    "title": "Satellites",
     "variables": [
       {
         "kind": "DatasourceVariable",
@@ -1334,7 +1104,7 @@
             "kind": "DataQuery",
             "spec": {
               "qryType": 1,
-              "query": "label_values(observer_info, job)",
+              "query": "label_values(satellite_altitude_meters, job)",
               "refId": "A"
             },
             "version": "v0"
@@ -1360,7 +1130,33 @@
             "kind": "DataQuery",
             "spec": {
               "qryType": 1,
-              "query": "label_values(observer_info{job=~\"$job\"}, observer)",
+              "query": "label_values(satellite_altitude_meters{job=~\"$job\"}, observer)",
+              "refId": "A"
+            },
+            "version": "v0"
+          }
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "includeAll": true,
+          "label": "Name",
+          "multi": true,
+          "name": "name",
+          "query": {
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "group": "prometheus",
+            "kind": "DataQuery",
+            "spec": {
+              "qryType": 1,
+              "query": "label_values(satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\"}, name)",
               "refId": "A"
             },
             "version": "v0"
