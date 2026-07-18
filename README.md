@@ -67,84 +67,87 @@ observers:
 
 ## Metrics
 
-**solar_system_bodies** (labels `body,observer`): `body_altitude_degrees`,
-`body_azimuth_degrees`, `body_distance_meters`, `body_above_horizon`,
-`body_next_rise_timestamp_seconds`, `body_next_set_timestamp_seconds`; plus
-`moon_illuminated_fraction`, `moon_phase_degrees` and `observer_info`.
+Every metric the exporter emits, with description, unit, expected range and
+labels. Per-collector detail is in [docs/](docs/index.md).
 
-**celestial_bodies** (labels `star,observer`): `star_altitude_degrees`,
-`star_azimuth_degrees`, `star_above_horizon`, `star_magnitude`,
-`star_next_rise_timestamp_seconds`, `star_next_set_timestamp_seconds`.
-
-**satellites** (labels `norad,name,observer`): `satellite_elevation_degrees`,
-`…_azimuth_degrees`, `…_range_meters`, `…_range_rate_meters_per_second`,
-`…_subpoint_{latitude,longitude}_degrees`, `…_altitude_meters`,
-`…_velocity_meters_per_second`, `…_above_horizon`, `…_sunlit`,
-`…_tle_epoch_timestamp_seconds`, `…_tle_age_seconds`,
-`…_next_pass_{aos,los}_timestamp_seconds`, `…_next_pass_max_elevation_degrees`.
-Transmitters (labels `norad,uuid,mode,status`):
-`satellite_transmitter_{downlink,uplink}_hertz`, `…_baud`;
-`satellite_doppler_hertz{norad,uuid,observer}`. Catalog/health:
-`satellite_catalog_size`, `…_with_transmitters`, `satellite_tracked_count{observer}`,
-`satellite_data_{update_success,update_timestamp_seconds,age_seconds,fetch_duration_seconds}{source}`.
-
-**space_weather** (no observer label): `space_weather_planetary_k_index`,
-`space_weather_solar_wind_speed_km_per_second`, `space_weather_imf_bz_nanotesla`,
-`space_weather_imf_bt_nanotesla`, `space_weather_f107_solar_radio_flux`,
-`space_weather_goes_xray_flux_watts_per_m2`; health
-`space_weather_data_{update_success,update_timestamp_seconds,age_seconds}{source}`.
-
-Full metric tables are in [docs/](docs/index.md).
-
-### Dashboard signals
-
-The [observ-lib](operations/space-telemetry-observ-lib/) mixin builds its Grafana
-dashboard and Prometheus alerts from these signals, grouped by collector (rendered
-from the mixin sources by `render.py` — do not edit between the markers by hand):
+### Signals
 
 <!-- signals:start -->
+★ = built into the [observ-lib](operations/space-telemetry-observ-lib/) dashboard/alerts.
+
 #### Solar-system bodies
 
-| Signal | Query | Unit |
-|---|---|---|
-| Body altitude | `body_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
-| Bodies above horizon | `sum by (observer) (body_above_horizon{job=~"$job", observer=~"$observer"})` | short |
-| Moon illuminated | `moon_illuminated_fraction{job=~"$job", observer=~"$observer"}` | percentunit |
-| Moon phase | `moon_phase_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `body_altitude_degrees` ★ | Apparent altitude of the body above the horizon. | degrees | -90 … 90 | `body`, `observer` |
+| `body_azimuth_degrees` | Apparent azimuth, clockwise from north. | degrees | 0 … 360 | `body`, `observer` |
+| `body_distance_meters` | Distance from the observer to the body. | metres | ~3.6e8 (Moon) … ~6e12 (Neptune) | `body`, `observer` |
+| `body_above_horizon` ★ | 1 if the body is above the horizon mask, else 0. | boolean | 0 or 1 | `body`, `observer` |
+| `body_next_rise_timestamp_seconds` | Next rise time (absent if none within the search window). | unix seconds | >= now | `body`, `observer` |
+| `body_next_set_timestamp_seconds` | Next set time (absent if none within the search window). | unix seconds | >= now | `body`, `observer` |
+| `moon_illuminated_fraction` ★ | Fraction of the lunar disc that is lit. | fraction | 0 … 1 | `observer` |
+| `moon_phase_degrees` ★ | Moon phase angle (0=new, 90=first quarter, 180=full, 270=last). | degrees | 0 … 360 | `observer` |
+| `observer_info` | Observer location (value is always 1; detail is in the labels). | info | 1 | `observer`, `latitude_deg`, `longitude_deg`, `elevation_m` |
+| `body_scrape_duration_seconds` | Time spent building the solar-system-body snapshot for a scrape. | seconds | >= 0 (typ. < 0.05) | — |
 
 #### Celestial bodies
 
-| Signal | Query | Unit |
-|---|---|---|
-| Star altitude | `star_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `star_altitude_degrees` ★ | Apparent altitude of the star above the horizon. | degrees | -90 … 90 | `star`, `observer` |
+| `star_azimuth_degrees` | Apparent azimuth, clockwise from north. | degrees | 0 … 360 | `star`, `observer` |
+| `star_above_horizon` | 1 if the star is above the horizon mask, else 0. | boolean | 0 or 1 | `star`, `observer` |
+| `star_magnitude` | Apparent visual magnitude (catalog constant; lower is brighter). | magnitude | -1.5 … 2 (catalog) | `star`, `observer` |
+| `star_next_rise_timestamp_seconds` | Next rise time (absent for circumpolar stars). | unix seconds | >= now | `star`, `observer` |
+| `star_next_set_timestamp_seconds` | Next set time (absent for circumpolar stars). | unix seconds | >= now | `star`, `observer` |
+| `star_scrape_duration_seconds` | Time spent building the celestial-body snapshot for a scrape. | seconds | >= 0 (typ. < 0.05) | — |
 
 #### Satellites
 
-| Signal | Query | Unit |
-|---|---|---|
-| Satellites tracked | `satellite_tracked_count{job=~"$job", observer=~"$observer"}` | short |
-| Satellite elevation | `satellite_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
-| Satellite altitude | `satellite_altitude_meters{job=~"$job", observer=~"$observer"}` | lengthm |
-| TLE age | `max by (name) (satellite_tle_age_seconds{job=~"$job", observer=~"$observer"})` | s |
-| Next pass max elevation | `satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
-| Satellite sources healthy | `sum(satellite_data_update_success{job=~"$job"})` | short |
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `satellite_elevation_degrees` ★ | Elevation above the horizon. | degrees | -90 … 90 | `norad`, `name`, `observer` |
+| `satellite_azimuth_degrees` | Azimuth, clockwise from north. | degrees | 0 … 360 | `norad`, `name`, `observer` |
+| `satellite_range_meters` | Slant range from the observer to the satellite. | metres | ~2e5 … ~4.5e7 | `norad`, `name`, `observer` |
+| `satellite_range_rate_meters_per_second` | Radial velocity (positive = receding); drives Doppler. | metres/second | ~-8000 … 8000 | `norad`, `name`, `observer` |
+| `satellite_subpoint_latitude_degrees` | Latitude of the sub-satellite point. | degrees | -90 … 90 | `norad`, `name`, `observer` |
+| `satellite_subpoint_longitude_degrees` | Longitude of the sub-satellite point. | degrees | -180 … 180 | `norad`, `name`, `observer` |
+| `satellite_altitude_meters` ★ | Satellite height above the WGS84 ellipsoid. | metres | ~2e5 (LEO) … ~3.6e7 (GEO) | `norad`, `name`, `observer` |
+| `satellite_velocity_meters_per_second` | Orbital speed (geocentric). | metres/second | ~3000 (GEO) … ~7800 (LEO) | `norad`, `name`, `observer` |
+| `satellite_above_horizon` | 1 if above the horizon mask, else 0. | boolean | 0 or 1 | `norad`, `name`, `observer` |
+| `satellite_sunlit` | 1 if the satellite is in sunlight, else 0. | boolean | 0 or 1 | `norad`, `name`, `observer` |
+| `satellite_tle_epoch_timestamp_seconds` | Epoch of the current element set. | unix seconds | <= now | `norad`, `name`, `observer` |
+| `satellite_tle_age_seconds` ★ | Age of the current element set (now - epoch). SGP4 accuracy decays with age. | seconds | >= 0 (alert if > 3 days) | `norad`, `name`, `observer` |
+| `satellite_next_pass_aos_timestamp_seconds` | Next pass acquisition-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
+| `satellite_next_pass_los_timestamp_seconds` | Next pass loss-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
+| `satellite_next_pass_max_elevation_degrees` ★ | Peak elevation of the next pass. | degrees | 0 … 90 | `norad`, `name`, `observer` |
+| `satellite_transmitter_downlink_hertz` | Transmitter downlink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
+| `satellite_transmitter_uplink_hertz` | Transmitter uplink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
+| `satellite_transmitter_baud` | Transmitter symbol rate. | baud | ~50 … ~1e6 | `norad`, `uuid`, `mode`, `status` |
+| `satellite_doppler_hertz` | Doppler shift on the downlink at the current range rate. | hertz | ~-1e5 … 1e5 | `norad`, `uuid`, `observer` |
+| `satellite_catalog_size` | Number of satellites in the offline catalog. | count | >= 0 | — |
+| `satellite_catalog_with_transmitters` | Catalog satellites that have at least one transmitter. | count | >= 0 | — |
+| `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ groups). | count | >= 0 | `observer` |
+| `satellite_data_update_success` ★ | 1 if the source's last fetch attempt succeeded, else 0. | boolean | 0 or 1 | `source` |
+| `satellite_data_update_timestamp_seconds` | Last successful fetch time, per source. | unix seconds | <= now | `source` |
+| `satellite_data_age_seconds` | Seconds since the source's last successful fetch. | seconds | >= 0 | `source` |
+| `satellite_data_fetch_duration_seconds` | Duration of the source's last fetch. | seconds | >= 0 | `source` |
+| `satellite_scrape_duration_seconds` ★ | Time spent building the satellite snapshot for a scrape. | seconds | >= 0 | — |
 
 #### Space weather
 
-| Signal | Query | Unit |
-|---|---|---|
-| Planetary Kp | `space_weather_planetary_k_index{job=~"$job"}` | short |
-| Solar wind speed | `space_weather_solar_wind_speed_km_per_second{job=~"$job"}` | short |
-| IMF Bz | `space_weather_imf_bz_nanotesla{job=~"$job"}` | short |
-| GOES X-ray flux | `space_weather_goes_xray_flux_watts_per_m2{job=~"$job"}` | short |
-| F10.7 flux | `space_weather_f107_solar_radio_flux{job=~"$job"}` | short |
-
-#### Health
-
-| Signal | Query | Unit |
-|---|---|---|
-| Exporter up | `up{job=~"$job"}` | short |
-| Scrape duration | `satellite_scrape_duration_seconds{job=~"$job"}` | s |
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `space_weather_planetary_k_index` ★ | Planetary K-index (geomagnetic activity); >= 5 is a geomagnetic storm. | index | 0 … 9 | — |
+| `space_weather_solar_wind_speed_km_per_second` ★ | Solar-wind bulk speed at L1. | km/second | ~250 … ~900 | — |
+| `space_weather_imf_bz_nanotesla` ★ | Interplanetary magnetic field Bz (GSM); strongly negative drives storms. | nanotesla | ~-50 … 50 | — |
+| `space_weather_imf_bt_nanotesla` | Interplanetary magnetic field total strength Bt. | nanotesla | 0 … ~50 | — |
+| `space_weather_f107_solar_radio_flux` ★ | 10.7 cm solar radio flux (F10.7); proxy for solar activity. | sfu | ~60 … ~300 | — |
+| `space_weather_goes_xray_flux_watts_per_m2` ★ | GOES long-band (0.1-0.8 nm) X-ray flux; M >= 1e-5, X >= 1e-4. | W/m^2 | ~1e-9 … ~1e-3 | — |
+| `space_weather_data_update_success` | 1 if the product's last fetch attempt succeeded, else 0. | boolean | 0 or 1 | `source` |
+| `space_weather_data_update_timestamp_seconds` | Last successful fetch time, per product. | unix seconds | <= now | `source` |
+| `space_weather_data_age_seconds` | Seconds since the product's last successful fetch. | seconds | >= 0 | `source` |
+| `space_weather_scrape_duration_seconds` | Time spent building the space-weather snapshot for a scrape. | seconds | >= 0 | — |
 <!-- signals:end -->
 
 ### Offline-first updaters

@@ -52,13 +52,6 @@ SIGNAL_META = {
     'f107': ('F10.7 flux', 'short', 'Space weather'),
 }
 GROUP_ORDER = ['Solar-system bodies', 'Celestial bodies', 'Satellites', 'Space weather', 'Health']
-# group -> collector doc page (relative to repo root); groups not listed go to the README only.
-GROUP_PAGE = {
-    'Solar-system bodies': 'docs/collectors/solar_system_bodies.md',
-    'Celestial bodies': 'docs/collectors/celestial_bodies.md',
-    'Satellites': 'docs/collectors/satellites.md',
-    'Space weather': 'docs/collectors/space_weather.md',
-}
 START, END = '<!-- signals:start -->', '<!-- signals:end -->'
 
 
@@ -107,21 +100,15 @@ def main():
     print('rules:', [g['name'] for g in m['rules']])
 
     exprs = m['signals']
-    repo = os.path.abspath(os.path.join(os.getcwd(), '..', '..'))
 
-    # Full table (all groups) into the observ-lib README and the repo README.
+    # Dashboard-signal queries into the observ-lib README only. (The docs "Signals"
+    # tables are the full metric catalog, rendered from signals.yaml by
+    # scripts/render_signals.py.)
     full = '\n\n'.join(
         '#### %s\n\n%s' % (g, _table(_group_keys(g, exprs), exprs))
         for g in GROUP_ORDER if _group_keys(g, exprs)
     )
     inject('README.md', full)
-    inject(os.path.join(repo, 'README.md'), full)
-
-    # Per-collector table into each collector doc page.
-    for group, page in GROUP_PAGE.items():
-        keys = _group_keys(group, exprs)
-        if keys:
-            inject(os.path.join(repo, page), _table(keys, exprs))
 
 
 def write_groups(groups, outdir):

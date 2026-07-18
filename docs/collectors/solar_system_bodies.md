@@ -24,22 +24,26 @@ the compact kernels.
 `sun`, `moon`, `mercury`, `venus`, `mars`, `jupiter`, `saturn`, `uranus`,
 `neptune`, `pluto`. Default is the seven classically visible bodies.
 
-## Metrics
+## Signals
 
-Labels `body,observer` unless noted.
+Every metric this collector emits (rendered from `signals.yaml`):
 
-| Metric | Meaning |
-|---|---|
-| `body_altitude_degrees` | apparent altitude above the horizon |
-| `body_azimuth_degrees` | azimuth, degrees clockwise from north |
-| `body_distance_meters` | observer → body distance |
-| `body_above_horizon` | 1 if above `min_elevation_deg` |
-| `body_next_rise_timestamp_seconds` | next rise (UNIX seconds) |
-| `body_next_set_timestamp_seconds` | next set (UNIX seconds) |
-| `moon_illuminated_fraction` | (labels `observer`) lit fraction of the lunar disc, 0..1 |
-| `moon_phase_degrees` | (labels `observer`) 0 = new, 90 = first quarter, 180 = full, 270 = last |
-| `observer_info` | (labels `observer,latitude_deg,longitude_deg,elevation_m`) observer location, value 1 |
-| `body_scrape_duration_seconds` | (no labels) snapshot build time per scrape |
+<!-- signals:start -->
+★ = on the observ-lib dashboard/alerts.
+
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `body_altitude_degrees` ★ | Apparent altitude of the body above the horizon. | degrees | -90 … 90 | `body`, `observer` |
+| `body_azimuth_degrees` | Apparent azimuth, clockwise from north. | degrees | 0 … 360 | `body`, `observer` |
+| `body_distance_meters` | Distance from the observer to the body. | metres | ~3.6e8 (Moon) … ~6e12 (Neptune) | `body`, `observer` |
+| `body_above_horizon` ★ | 1 if the body is above the horizon mask, else 0. | boolean | 0 or 1 | `body`, `observer` |
+| `body_next_rise_timestamp_seconds` | Next rise time (absent if none within the search window). | unix seconds | >= now | `body`, `observer` |
+| `body_next_set_timestamp_seconds` | Next set time (absent if none within the search window). | unix seconds | >= now | `body`, `observer` |
+| `moon_illuminated_fraction` ★ | Fraction of the lunar disc that is lit. | fraction | 0 … 1 | `observer` |
+| `moon_phase_degrees` ★ | Moon phase angle (0=new, 90=first quarter, 180=full, 270=last). | degrees | 0 … 360 | `observer` |
+| `observer_info` | Observer location (value is always 1; detail is in the labels). | info | 1 | `observer`, `latitude_deg`, `longitude_deg`, `elevation_m` |
+| `body_scrape_duration_seconds` | Time spent building the solar-system-body snapshot for a scrape. | seconds | >= 0 (typ. < 0.05) | — |
+<!-- signals:end -->
 
 ## Handy derivations
 
@@ -55,18 +59,3 @@ Labels `body,observer` unless noted.
   km, the Sun ~1.0 AU (≈1.5×10¹¹ m).
 - Rise/set can be `None` (metric absent) for circumpolar bodies or when an event
   doesn't occur in the next 24 h.
-
-## Dashboard signals
-
-The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
-dashboard and alerts use these signals for this collector (queries rendered from
-the mixin sources):
-
-<!-- signals:start -->
-| Signal | Query | Unit |
-|---|---|---|
-| Body altitude | `body_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
-| Bodies above horizon | `sum by (observer) (body_above_horizon{job=~"$job", observer=~"$observer"})` | short |
-| Moon illuminated | `moon_illuminated_fraction{job=~"$job", observer=~"$observer"}` | percentunit |
-| Moon phase | `moon_phase_degrees{job=~"$job", observer=~"$observer"}` | degree |
-<!-- signals:end -->

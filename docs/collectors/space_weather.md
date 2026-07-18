@@ -16,25 +16,28 @@ Each product is fetched and its most recent observation exposed as a gauge.
 | `f107` | `/products/summary/10cm-flux.json` | `space_weather_f107_solar_radio_flux` | sfu |
 | `xray` | `/json/goes/primary/xrays-1-day.json` | `space_weather_goes_xray_flux_watts_per_m2` | W/m² |
 
-## Metrics
+## Signals
 
-| Metric | Meaning |
-|---|---|
-| `space_weather_planetary_k_index` | Planetary K-index, 0 (quiet) – 9 (extreme storm); Kp ≥ 5 is a geomagnetic storm |
-| `space_weather_solar_wind_speed_km_per_second` | Solar-wind bulk speed at L1 (~300–400 ambient, 600–800+ in high-speed streams) |
-| `space_weather_imf_bz_nanotesla` | IMF Bz (GSM); strongly **southward/negative** Bz drives storms |
-| `space_weather_imf_bt_nanotesla` | IMF total field strength Bt |
-| `space_weather_f107_solar_radio_flux` | 10.7 cm solar radio flux (sfu); proxy for solar activity / upper-atmosphere heating |
-| `space_weather_goes_xray_flux_watts_per_m2` | GOES long-band (0.1–0.8 nm) X-ray flux; flare classes A<10⁻⁷, B, C, **M 10⁻⁵**, **X 10⁻⁴** |
+Every metric this collector emits (rendered from `signals.yaml`). The `source`
+label on the data-pipeline metrics is the product key (`kp`, `wind`, `mag`,
+`f107`, `xray`).
 
-Health, per product (`source` ∈ `kp`, `wind`, `mag`, `f107`, `xray`):
+<!-- signals:start -->
+★ = on the observ-lib dashboard/alerts.
 
-| Metric | Labels | Meaning |
-|---|---|---|
-| `space_weather_data_update_success` | `source` | 1 if the last fetch succeeded |
-| `space_weather_data_update_timestamp_seconds` | `source` | last successful fetch (UNIX s) |
-| `space_weather_data_age_seconds` | `source` | seconds since last fetch |
-| `space_weather_scrape_duration_seconds` | — | snapshot build time per scrape |
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `space_weather_planetary_k_index` ★ | Planetary K-index (geomagnetic activity); >= 5 is a geomagnetic storm. | index | 0 … 9 | — |
+| `space_weather_solar_wind_speed_km_per_second` ★ | Solar-wind bulk speed at L1. | km/second | ~250 … ~900 | — |
+| `space_weather_imf_bz_nanotesla` ★ | Interplanetary magnetic field Bz (GSM); strongly negative drives storms. | nanotesla | ~-50 … 50 | — |
+| `space_weather_imf_bt_nanotesla` | Interplanetary magnetic field total strength Bt. | nanotesla | 0 … ~50 | — |
+| `space_weather_f107_solar_radio_flux` ★ | 10.7 cm solar radio flux (F10.7); proxy for solar activity. | sfu | ~60 … ~300 | — |
+| `space_weather_goes_xray_flux_watts_per_m2` ★ | GOES long-band (0.1-0.8 nm) X-ray flux; M >= 1e-5, X >= 1e-4. | W/m^2 | ~1e-9 … ~1e-3 | — |
+| `space_weather_data_update_success` | 1 if the product's last fetch attempt succeeded, else 0. | boolean | 0 or 1 | `source` |
+| `space_weather_data_update_timestamp_seconds` | Last successful fetch time, per product. | unix seconds | <= now | `source` |
+| `space_weather_data_age_seconds` | Seconds since the product's last successful fetch. | seconds | >= 0 | `source` |
+| `space_weather_scrape_duration_seconds` | Time spent building the space-weather snapshot for a scrape. | seconds | >= 0 | — |
+<!-- signals:end -->
 
 ## Update mechanism
 
@@ -52,19 +55,3 @@ a minute at the source, so 5 minutes is a reasonable default — lower
 
 `space_weather_enabled`, `space_weather_refresh_minutes` — see
 [Configuration](../configuration.md). Example: `examples/space-weather.yaml`.
-
-## Dashboard signals
-
-The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
-dashboard and alerts use these signals for this collector (queries rendered from
-the mixin sources):
-
-<!-- signals:start -->
-| Signal | Query | Unit |
-|---|---|---|
-| Planetary Kp | `space_weather_planetary_k_index{job=~"$job"}` | short |
-| Solar wind speed | `space_weather_solar_wind_speed_km_per_second{job=~"$job"}` | short |
-| IMF Bz | `space_weather_imf_bz_nanotesla{job=~"$job"}` | short |
-| GOES X-ray flux | `space_weather_goes_xray_flux_watts_per_m2{job=~"$job"}` | short |
-| F10.7 flux | `space_weather_f107_solar_radio_flux{job=~"$job"}` | short |
-<!-- signals:end -->
