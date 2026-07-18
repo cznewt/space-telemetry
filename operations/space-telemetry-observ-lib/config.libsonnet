@@ -14,10 +14,13 @@
   varLabels: ['observer'],
 
   // Per-signal selectors: sky/satellite metrics carry `observer`; space-weather
-  // metrics are global (job only).
+  // metrics are global (job only). bodySelector/satSelector also filter on the
+  // per-dashboard $body / $name multi-select variables (created via varMetric).
   observerSelector: 'job=~"$job", observer=~"$observer"',
   jobSelector: 'job=~"$job"',
   selector: 'job=~"$job", observer=~"$observer"',
+  bodySelector: 'job=~"$job", observer=~"$observer", body=~"$body"',
+  satSelector: 'job=~"$job", observer=~"$observer", name=~"$name"',
 
   // Static selector for ALERT expressions (alerts cannot use dashboard vars).
   exporterSelector: 'job="space-telemetry"',
