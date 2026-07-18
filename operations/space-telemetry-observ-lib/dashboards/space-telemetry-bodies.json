@@ -186,7 +186,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "moon_illuminated_fraction{job=~\"$job\", observer=~\"$observer\"}"
+                        "expr": "avg without (instance, pod) (moon_illuminated_fraction{job=~\"$job\", observer=~\"$observer\"})"
                       },
                       "version": "v0"
                     },
@@ -237,7 +237,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "moon_phase_degrees{job=~\"$job\", observer=~\"$observer\"}"
+                        "expr": "avg without (instance, pod) (moon_phase_degrees{job=~\"$job\", observer=~\"$observer\"})"
                       },
                       "version": "v0"
                     },

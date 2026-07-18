@@ -152,6 +152,7 @@ class SatelliteProvider:
                 above_horizon=geo["elevation_deg"] > mask, sunlit=geo["sunlit"],
                 tle_epoch_ts=sat.epoch_ts,
                 next_aos_ts=aos, next_los_ts=los, next_max_elev_deg=max_elev,
+                group=group_label(sat),
                 transmitters=sat.transmitters,
             ))
         return out

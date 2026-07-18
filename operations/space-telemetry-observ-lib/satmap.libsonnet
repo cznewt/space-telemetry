@@ -9,7 +9,7 @@ local panel = import 'custom/panel.libsonnet';
 local query = import 'custom/query.libsonnet';
 
 local q(cfg, refid, metric) =
-  query.prometheus.new(cfg.datasource, 'max by (name) (' + metric + '{' + cfg.observerSelector + '})')
+  query.prometheus.new(cfg.datasource, 'max by (name) (' + metric + '{' + cfg.satSelector + '})')
   + query.prometheus.withRefId(refid)
   + query.prometheus.withInstant(true)
   + query.prometheus.withFormat('table');
@@ -111,7 +111,9 @@ local groupOverrides = [
           name: 'satellites',
           location: { mode: 'auto' },
           config: {
-            showLegend: true,
+            // numeric threshold legend shows ids, not names -> hidden; the "By group"
+            // pie is the readable colour key (same colours).
+            showLegend: false,
             style: {
               size: { fixed: 7 },
               color: { field: 'group' },  // numeric group id -> colour via value mappings

@@ -15,8 +15,10 @@ function(cfg)
     // Solar-system bodies (filtered by $body)
     bodyAltitude: sig('Body altitude', 'body_altitude_degrees{%(queriesSelector)s}', 'degree', cfg.bodySelector, '{{body}}'),
     bodiesUp: sig('Bodies above horizon', 'sum by (observer) (body_above_horizon{%(queriesSelector)s})', 'short', cfg.observerSelector),
-    moonIllum: sig('Moon illuminated', 'moon_illuminated_fraction{%(queriesSelector)s}', 'percentunit', cfg.observerSelector),
-    moonPhase: sig('Moon phase', 'moon_phase_degrees{%(queriesSelector)s}', 'degree', cfg.observerSelector),
+    // avg without (instance, pod): those labels change on a pod restart, so aggregating
+    // them away keeps a single stable series instead of duplicating across the old+new pod.
+    moonIllum: sig('Moon illuminated', 'avg without (instance, pod) (moon_illuminated_fraction{%(queriesSelector)s})', 'percentunit', cfg.observerSelector),
+    moonPhase: sig('Moon phase', 'avg without (instance, pod) (moon_phase_degrees{%(queriesSelector)s})', 'degree', cfg.observerSelector),
 
     // Celestial bodies (stars)
     starAltitude: sig('Star altitude', 'star_altitude_degrees{%(queriesSelector)s}', 'degree', cfg.observerSelector, '{{star}}'),
@@ -26,8 +28,8 @@ function(cfg)
     catalogSize: sig('Catalog size', 'satellite_catalog_size{%(queriesSelector)s}', 'short', cfg.jobSelector),
     satElevation: sig('Satellite elevation', 'satellite_elevation_degrees{%(queriesSelector)s}', 'degree', cfg.satSelector, '{{name}}'),
     satAltitude: sig('Satellite altitude', 'satellite_altitude_meters{%(queriesSelector)s}', 'lengthm', cfg.satSelector, '{{name}}'),
-    tleAge: sig('TLE age', 'max by (name) (satellite_tle_age_seconds{%(queriesSelector)s})', 's', cfg.observerSelector, '{{name}}'),
-    nextPassMaxEl: sig('Next pass max elevation', 'max by (name) (satellite_next_pass_max_elevation_degrees{%(queriesSelector)s})', 'degree', cfg.observerSelector, '{{name}}'),
+    tleAge: sig('TLE age', 'max by (name) (satellite_tle_age_seconds{%(queriesSelector)s})', 's', cfg.satSelector, '{{name}}'),
+    nextPassMaxEl: sig('Next pass max elevation', 'max by (name) (satellite_next_pass_max_elevation_degrees{%(queriesSelector)s})', 'degree', cfg.satSelector, '{{name}}'),
     satSourcesOk: sig('Satellite sources healthy', 'sum(satellite_data_update_success{%(queriesSelector)s})', 'short', cfg.jobSelector),
     satSourceOk: sig('Source status', 'satellite_data_update_success{%(queriesSelector)s}', 'short', cfg.jobSelector, '{{source}}'),
     satSourceAge: sig('Source age', 'satellite_data_age_seconds{%(queriesSelector)s}', 's', cfg.jobSelector, '{{source}}'),

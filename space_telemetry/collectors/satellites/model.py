@@ -80,6 +80,7 @@ class SatelliteState:
     next_aos_ts: Optional[float]
     next_los_ts: Optional[float]
     next_max_elev_deg: Optional[float]
+    group: str = ""
     transmitters: list[Transmitter] = field(default_factory=list)
 
 

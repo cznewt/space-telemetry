@@ -10,7 +10,7 @@ from time import perf_counter, time
 
 from prometheus_client.core import GaugeMetricFamily
 
-_SAT_L = ["norad", "name", "observer"]
+_SAT_L = ["norad", "name", "observer", "group"]
 _TX_L = ["norad", "uuid", "mode", "status"]
 _C = 299_792_458.0  # speed of light, m/s
 
@@ -60,7 +60,7 @@ class SatelliteCollector:
         seen_tx: set = set()
         for obs, states in per_observer:
             for s in states:
-                lv = [str(s.norad_id), s.name, obs]
+                lv = [str(s.norad_id), s.name, obs, s.group]
                 elev.add_metric(lv, s.elevation_deg)
                 az.add_metric(lv, s.azimuth_deg)
                 rng.add_metric(lv, s.range_m)

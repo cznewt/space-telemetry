@@ -28,7 +28,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\", name=~\"$name\"}",
+                        "expr": "satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"}",
                         "legendFormat": "{{name}}"
                       },
                       "version": "v0"
@@ -290,7 +290,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\", name=~\"$name\"}",
+                        "expr": "satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"}",
                         "legendFormat": "{{name}}"
                       },
                       "version": "v0"
@@ -342,7 +342,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_next_pass_max_elevation_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_next_pass_max_elevation_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true,
                         "legendFormat": "{{name}}",
@@ -397,7 +397,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_subpoint_latitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_subpoint_latitude_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true
                       },
@@ -417,7 +417,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_subpoint_longitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_subpoint_longitude_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true
                       },
@@ -582,7 +582,7 @@
                 "layers": [
                   {
                     "config": {
-                      "showLegend": true,
+                      "showLegend": false,
                       "style": {
                         "color": {
                           "field": "group"
@@ -648,7 +648,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_subpoint_latitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_subpoint_latitude_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true
                       },
@@ -668,7 +668,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_subpoint_longitude_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_subpoint_longitude_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true
                       },
@@ -688,7 +688,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_elevation_degrees{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true
                       },
@@ -708,7 +708,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true
                       },
@@ -974,7 +974,7 @@
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
-                        "expr": "max by (name) (satellite_tle_age_seconds{job=~\"$job\", observer=~\"$observer\"})",
+                        "expr": "max by (name) (satellite_tle_age_seconds{job=~\"$job\", observer=~\"$observer\", group=~\"$group\"})",
                         "format": "table",
                         "instant": true,
                         "legendFormat": "{{name}}",
@@ -1309,7 +1309,7 @@
                           "kind": "ElementReference",
                           "name": "posmap"
                         },
-                        "height": 16,
+                        "height": 20,
                         "width": 24,
                         "x": 0,
                         "y": 0
@@ -1447,9 +1447,9 @@
             "value": "$__all"
           },
           "includeAll": true,
-          "label": "Name",
+          "label": "Group",
           "multi": true,
-          "name": "name",
+          "name": "group",
           "query": {
             "datasource": {
               "name": "${datasource}"
@@ -1458,7 +1458,7 @@
             "kind": "DataQuery",
             "spec": {
               "qryType": 1,
-              "query": "label_values(satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\"}, name)",
+              "query": "label_values(satellite_altitude_meters{job=~\"$job\", observer=~\"$observer\"}, group)",
               "refId": "A"
             },
             "version": "v0"
