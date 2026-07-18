@@ -96,6 +96,57 @@ Transmitters (labels `norad,uuid,mode,status`):
 
 Full metric tables are in [docs/](docs/index.md).
 
+### Dashboard signals
+
+The [observ-lib](operations/space-telemetry-observ-lib/) mixin builds its Grafana
+dashboard and Prometheus alerts from these signals, grouped by collector (rendered
+from the mixin sources by `render.py` — do not edit between the markers by hand):
+
+<!-- signals:start -->
+#### Solar-system bodies
+
+| Signal | Query | Unit |
+|---|---|---|
+| Body altitude | `body_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Bodies above horizon | `sum by (observer) (body_above_horizon{job=~"$job", observer=~"$observer"})` | short |
+| Moon illuminated | `moon_illuminated_fraction{job=~"$job", observer=~"$observer"}` | percentunit |
+| Moon phase | `moon_phase_degrees{job=~"$job", observer=~"$observer"}` | degree |
+
+#### Celestial bodies
+
+| Signal | Query | Unit |
+|---|---|---|
+| Star altitude | `star_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
+
+#### Satellites
+
+| Signal | Query | Unit |
+|---|---|---|
+| Satellites tracked | `satellite_tracked_count{job=~"$job", observer=~"$observer"}` | short |
+| Satellite elevation | `satellite_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Satellite altitude | `satellite_altitude_meters{job=~"$job", observer=~"$observer"}` | lengthm |
+| TLE age | `max by (name) (satellite_tle_age_seconds{job=~"$job", observer=~"$observer"})` | s |
+| Next pass max elevation | `satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Satellite sources healthy | `sum(satellite_data_update_success{job=~"$job"})` | short |
+
+#### Space weather
+
+| Signal | Query | Unit |
+|---|---|---|
+| Planetary Kp | `space_weather_planetary_k_index{job=~"$job"}` | short |
+| Solar wind speed | `space_weather_solar_wind_speed_km_per_second{job=~"$job"}` | short |
+| IMF Bz | `space_weather_imf_bz_nanotesla{job=~"$job"}` | short |
+| GOES X-ray flux | `space_weather_goes_xray_flux_watts_per_m2{job=~"$job"}` | short |
+| F10.7 flux | `space_weather_f107_solar_radio_flux{job=~"$job"}` | short |
+
+#### Health
+
+| Signal | Query | Unit |
+|---|---|---|
+| Exporter up | `up{job=~"$job"}` | short |
+| Scrape duration | `satellite_scrape_duration_seconds{job=~"$job"}` | s |
+<!-- signals:end -->
+
 ### Offline-first updaters
 
 Satellites and space weather each run a daemon thread that refreshes each source

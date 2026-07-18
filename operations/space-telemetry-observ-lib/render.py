@@ -109,12 +109,13 @@ def main():
     exprs = m['signals']
     repo = os.path.abspath(os.path.join(os.getcwd(), '..', '..'))
 
-    # Full table (all groups) into the observ-lib README.
+    # Full table (all groups) into the observ-lib README and the repo README.
     full = '\n\n'.join(
-        '### %s\n\n%s' % (g, _table(_group_keys(g, exprs), exprs))
+        '#### %s\n\n%s' % (g, _table(_group_keys(g, exprs), exprs))
         for g in GROUP_ORDER if _group_keys(g, exprs)
     )
     inject('README.md', full)
+    inject(os.path.join(repo, 'README.md'), full)
 
     # Per-collector table into each collector doc page.
     for group, page in GROUP_PAGE.items():
