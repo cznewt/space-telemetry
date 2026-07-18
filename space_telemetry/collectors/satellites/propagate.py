@@ -17,6 +17,21 @@ from .model import CatalogHolder, SatelliteState
 _C = 299_792_458.0  # speed of light, m/s
 
 
+def subpoint_at(earthsat, t):
+    """(latitude_deg, longitude_deg) of the sub-satellite point at time *t*."""
+    sub = wgs84.subpoint(earthsat.at(t))
+    return sub.latitude.degrees, sub.longitude.degrees
+
+
+def offset_label(minutes):
+    """Human label for a track offset: 0 -> 'now', 60 -> '+1h', -5 -> '-5m'."""
+    if minutes == 0:
+        return "now"
+    sign = "+" if minutes > 0 else "-"
+    m = abs(int(minutes))
+    return f"{sign}{m // 60}h" if m % 60 == 0 else f"{sign}{m}m"
+
+
 def topocentric_state(earthsat, topos, eph, t) -> dict:
     geocentric = earthsat.at(t)
     subpoint = wgs84.subpoint(geocentric)
@@ -124,6 +139,22 @@ class SatelliteProvider:
                 next_aos_ts=aos, next_los_ts=los, next_max_elev_deg=max_elev,
                 transmitters=sat.transmitters,
             ))
+        return out
+
+    def tracks(self):
+        """Ground track for the tracked set: (norad, name, offset_label, lat, lon) at
+        each configured time offset. Observer-independent, so the collector emits it once."""
+        catalog = self.holder.get()
+        now = self.ts.now()
+        out = []
+        for sat in self._tracked(catalog):
+            for minutes in self.settings.sat_track_offsets_minutes:
+                t = self.ts.tt_jd(now.tt + minutes / 1440.0)
+                try:
+                    lat, lon = subpoint_at(sat.earthsat, t)
+                except Exception:
+                    continue
+                out.append((sat.norad_id, sat.name, offset_label(minutes), lat, lon))
         return out
 
     def catalog(self):
