@@ -36,10 +36,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Render dashboards + alerts + rules + docs signals
+      - name: Render mixin (dashboards + alerts + rules + dashboard signals)
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE":/repo -w /repo/operations/space-telemetry-observ-lib \
             --entrypoint python3 ghcr.io/cznewt/observ-lib:latest render.py
+
+      - name: Render signals catalog into docs
+        working-directory: ${{ github.workspace }}
+        run: |
+          pip install pyyaml
+          python3 scripts/render_signals.py
 
       - name: Fail if committed output drifted
         working-directory: ${{ github.workspace }}

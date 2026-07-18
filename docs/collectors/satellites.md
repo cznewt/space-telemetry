@@ -49,50 +49,45 @@ For each tracked satellite from the observer, at scrape time:
 - **Doppler** — for each transmitter downlink `f`: `Δf = −(range_rate / c)·f`
   (positive when approaching).
 
-## Metrics
+## Signals
 
-Per tracked satellite — labels `norad,name,observer`:
+Every metric this collector emits (rendered from `signals.yaml`). The `source`
+label on the data-pipeline metrics is `celestrak:<group>`, `satnogs:transmitters`,
+or `satnogs:satellites`.
 
-| Metric | Meaning |
-|---|---|
-| `satellite_elevation_degrees` | elevation above the horizon |
-| `satellite_azimuth_degrees` | azimuth, clockwise from north |
-| `satellite_range_meters` | slant range observer→satellite |
-| `satellite_range_rate_meters_per_second` | range rate (+receding); drives Doppler |
-| `satellite_subpoint_latitude_degrees` | sub-satellite point latitude |
-| `satellite_subpoint_longitude_degrees` | sub-satellite point longitude |
-| `satellite_altitude_meters` | height above the ellipsoid |
-| `satellite_velocity_meters_per_second` | orbital speed |
-| `satellite_above_horizon` | 1 if above the horizon mask |
-| `satellite_sunlit` | 1 if in sunlight |
-| `satellite_tle_epoch_timestamp_seconds` | element-set epoch (UNIX s) |
-| `satellite_tle_age_seconds` | age of the element set |
-| `satellite_next_pass_aos_timestamp_seconds` | next pass AOS (UNIX s) |
-| `satellite_next_pass_los_timestamp_seconds` | next pass LOS (UNIX s) |
-| `satellite_next_pass_max_elevation_degrees` | next pass peak elevation |
+<!-- signals:start -->
+★ = on the observ-lib dashboard/alerts.
 
-Per transmitter — labels `norad,uuid,mode,status` (frequencies are observer-independent):
-
-| Metric | Meaning |
-|---|---|
-| `satellite_transmitter_downlink_hertz` | downlink frequency |
-| `satellite_transmitter_uplink_hertz` | uplink frequency |
-| `satellite_transmitter_baud` | symbol rate |
-| `satellite_doppler_hertz` (labels `norad,uuid,observer`) | Doppler shift on the downlink |
-
-Catalog & pipeline health:
-
-| Metric | Labels | Meaning |
-|---|---|---|
-| `satellite_catalog_size` | — | satellites in the offline catalog |
-| `satellite_catalog_with_transmitters` | — | catalog sats with ≥1 transmitter |
-| `satellite_tracked_count` | `observer` | tracked satellites per observer |
-| `satellite_data_update_success` | `source` | 1 if the last fetch succeeded |
-| `satellite_data_update_timestamp_seconds` | `source` | last successful fetch (UNIX s) |
-| `satellite_data_age_seconds` | `source` | seconds since last fetch |
-| `satellite_data_fetch_duration_seconds` | `source` | last fetch duration |
-
-where `source` is `celestrak:<group>`, `satnogs:transmitters`, or `satnogs:satellites`.
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `satellite_elevation_degrees` ★ | Elevation above the horizon. | degrees | -90 … 90 | `norad`, `name`, `observer` |
+| `satellite_azimuth_degrees` | Azimuth, clockwise from north. | degrees | 0 … 360 | `norad`, `name`, `observer` |
+| `satellite_range_meters` | Slant range from the observer to the satellite. | metres | ~2e5 … ~4.5e7 | `norad`, `name`, `observer` |
+| `satellite_range_rate_meters_per_second` | Radial velocity (positive = receding); drives Doppler. | metres/second | ~-8000 … 8000 | `norad`, `name`, `observer` |
+| `satellite_subpoint_latitude_degrees` | Latitude of the sub-satellite point. | degrees | -90 … 90 | `norad`, `name`, `observer` |
+| `satellite_subpoint_longitude_degrees` | Longitude of the sub-satellite point. | degrees | -180 … 180 | `norad`, `name`, `observer` |
+| `satellite_altitude_meters` ★ | Satellite height above the WGS84 ellipsoid. | metres | ~2e5 (LEO) … ~3.6e7 (GEO) | `norad`, `name`, `observer` |
+| `satellite_velocity_meters_per_second` | Orbital speed (geocentric). | metres/second | ~3000 (GEO) … ~7800 (LEO) | `norad`, `name`, `observer` |
+| `satellite_above_horizon` | 1 if above the horizon mask, else 0. | boolean | 0 or 1 | `norad`, `name`, `observer` |
+| `satellite_sunlit` | 1 if the satellite is in sunlight, else 0. | boolean | 0 or 1 | `norad`, `name`, `observer` |
+| `satellite_tle_epoch_timestamp_seconds` | Epoch of the current element set. | unix seconds | <= now | `norad`, `name`, `observer` |
+| `satellite_tle_age_seconds` ★ | Age of the current element set (now - epoch). SGP4 accuracy decays with age. | seconds | >= 0 (alert if > 3 days) | `norad`, `name`, `observer` |
+| `satellite_next_pass_aos_timestamp_seconds` | Next pass acquisition-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
+| `satellite_next_pass_los_timestamp_seconds` | Next pass loss-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
+| `satellite_next_pass_max_elevation_degrees` ★ | Peak elevation of the next pass. | degrees | 0 … 90 | `norad`, `name`, `observer` |
+| `satellite_transmitter_downlink_hertz` | Transmitter downlink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
+| `satellite_transmitter_uplink_hertz` | Transmitter uplink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
+| `satellite_transmitter_baud` | Transmitter symbol rate. | baud | ~50 … ~1e6 | `norad`, `uuid`, `mode`, `status` |
+| `satellite_doppler_hertz` | Doppler shift on the downlink at the current range rate. | hertz | ~-1e5 … 1e5 | `norad`, `uuid`, `observer` |
+| `satellite_catalog_size` | Number of satellites in the offline catalog. | count | >= 0 | — |
+| `satellite_catalog_with_transmitters` | Catalog satellites that have at least one transmitter. | count | >= 0 | — |
+| `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ groups). | count | >= 0 | `observer` |
+| `satellite_data_update_success` ★ | 1 if the source's last fetch attempt succeeded, else 0. | boolean | 0 or 1 | `source` |
+| `satellite_data_update_timestamp_seconds` | Last successful fetch time, per source. | unix seconds | <= now | `source` |
+| `satellite_data_age_seconds` | Seconds since the source's last successful fetch. | seconds | >= 0 | `source` |
+| `satellite_data_fetch_duration_seconds` | Duration of the source's last fetch. | seconds | >= 0 | `source` |
+| `satellite_scrape_duration_seconds` ★ | Time spent building the satellite snapshot for a scrape. | seconds | >= 0 | — |
+<!-- signals:end -->
 
 ## Update mechanism
 
@@ -108,11 +103,6 @@ network, and on startup the exporter serves whatever is already cached.
 Be a good citizen: CelesTrak asks clients to cache and refresh only a few times a
 day (the defaults do). A real `user_agent` is sent.
 
-## TLE freshness
-
-`satellite_tle_age_seconds` is `now − epoch`. SGP4 accuracy degrades over days, so
-alert if it grows large (e.g. `> 3` days) — it means the updater hasn't refreshed.
-
 ## Configuration
 
 `sat_enabled`, `sat_groups`, `sat_watchlist`, `celestrak_format`,
@@ -120,20 +110,3 @@ alert if it grows large (e.g. `> 3` days) — it means the updater hasn't refres
 `satnogs_satellites_refresh_hours`, `pass_lookahead_hours`,
 `sat_pass_cache_ttl_s` — see [Configuration](../configuration.md). Example:
 `examples/weather-satellites.yaml`.
-
-## Dashboard signals
-
-The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
-dashboard and alerts use these signals for this collector (queries rendered from
-the mixin sources):
-
-<!-- signals:start -->
-| Signal | Query | Unit |
-|---|---|---|
-| Satellites tracked | `satellite_tracked_count{job=~"$job", observer=~"$observer"}` | short |
-| Satellite elevation | `satellite_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
-| Satellite altitude | `satellite_altitude_meters{job=~"$job", observer=~"$observer"}` | lengthm |
-| TLE age | `max by (name) (satellite_tle_age_seconds{job=~"$job", observer=~"$observer"})` | s |
-| Next pass max elevation | `satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer"}` | degree |
-| Satellite sources healthy | `sum(satellite_data_update_success{job=~"$job"})` | short |
-<!-- signals:end -->

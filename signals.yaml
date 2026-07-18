@@ -1,0 +1,355 @@
+# Signal catalog — every metric the exporter emits, with metadata. Source of truth
+# for the docs "Signals" tables (rendered by scripts/render_signals.py). `dashboard: true`
+# marks the signals the observ-lib Grafana dashboard/alerts are built from.
+#
+# unit is a human label; range is the expected value range (typical, not enforced).
+
+signals:
+  # ---------------- solar_system_bodies ----------------
+  - name: body_altitude_degrees
+    collector: solar_system_bodies
+    description: Apparent altitude of the body above the horizon.
+    unit: degrees
+    range: "-90 … 90"
+    labels: [body, observer]
+    dashboard: true
+  - name: body_azimuth_degrees
+    collector: solar_system_bodies
+    description: Apparent azimuth, clockwise from north.
+    unit: degrees
+    range: "0 … 360"
+    labels: [body, observer]
+  - name: body_distance_meters
+    collector: solar_system_bodies
+    description: Distance from the observer to the body.
+    unit: metres
+    range: "~3.6e8 (Moon) … ~6e12 (Neptune)"
+    labels: [body, observer]
+  - name: body_above_horizon
+    collector: solar_system_bodies
+    description: 1 if the body is above the horizon mask, else 0.
+    unit: boolean
+    range: "0 or 1"
+    labels: [body, observer]
+    dashboard: true
+  - name: body_next_rise_timestamp_seconds
+    collector: solar_system_bodies
+    description: Next rise time (absent if none within the search window).
+    unit: unix seconds
+    range: ">= now"
+    labels: [body, observer]
+  - name: body_next_set_timestamp_seconds
+    collector: solar_system_bodies
+    description: Next set time (absent if none within the search window).
+    unit: unix seconds
+    range: ">= now"
+    labels: [body, observer]
+  - name: moon_illuminated_fraction
+    collector: solar_system_bodies
+    description: Fraction of the lunar disc that is lit.
+    unit: fraction
+    range: "0 … 1"
+    labels: [observer]
+    dashboard: true
+  - name: moon_phase_degrees
+    collector: solar_system_bodies
+    description: Moon phase angle (0=new, 90=first quarter, 180=full, 270=last).
+    unit: degrees
+    range: "0 … 360"
+    labels: [observer]
+    dashboard: true
+  - name: observer_info
+    collector: solar_system_bodies
+    description: Observer location (value is always 1; detail is in the labels).
+    unit: info
+    range: "1"
+    labels: [observer, latitude_deg, longitude_deg, elevation_m]
+  - name: body_scrape_duration_seconds
+    collector: solar_system_bodies
+    description: Time spent building the solar-system-body snapshot for a scrape.
+    unit: seconds
+    range: ">= 0 (typ. < 0.05)"
+    labels: []
+
+  # ---------------- celestial_bodies ----------------
+  - name: star_altitude_degrees
+    collector: celestial_bodies
+    description: Apparent altitude of the star above the horizon.
+    unit: degrees
+    range: "-90 … 90"
+    labels: [star, observer]
+    dashboard: true
+  - name: star_azimuth_degrees
+    collector: celestial_bodies
+    description: Apparent azimuth, clockwise from north.
+    unit: degrees
+    range: "0 … 360"
+    labels: [star, observer]
+  - name: star_above_horizon
+    collector: celestial_bodies
+    description: 1 if the star is above the horizon mask, else 0.
+    unit: boolean
+    range: "0 or 1"
+    labels: [star, observer]
+  - name: star_magnitude
+    collector: celestial_bodies
+    description: Apparent visual magnitude (catalog constant; lower is brighter).
+    unit: magnitude
+    range: "-1.5 … 2 (catalog)"
+    labels: [star, observer]
+  - name: star_next_rise_timestamp_seconds
+    collector: celestial_bodies
+    description: Next rise time (absent for circumpolar stars).
+    unit: unix seconds
+    range: ">= now"
+    labels: [star, observer]
+  - name: star_next_set_timestamp_seconds
+    collector: celestial_bodies
+    description: Next set time (absent for circumpolar stars).
+    unit: unix seconds
+    range: ">= now"
+    labels: [star, observer]
+  - name: star_scrape_duration_seconds
+    collector: celestial_bodies
+    description: Time spent building the celestial-body snapshot for a scrape.
+    unit: seconds
+    range: ">= 0 (typ. < 0.05)"
+    labels: []
+
+  # ---------------- satellites ----------------
+  - name: satellite_elevation_degrees
+    collector: satellites
+    description: Elevation above the horizon.
+    unit: degrees
+    range: "-90 … 90"
+    labels: [norad, name, observer]
+    dashboard: true
+  - name: satellite_azimuth_degrees
+    collector: satellites
+    description: Azimuth, clockwise from north.
+    unit: degrees
+    range: "0 … 360"
+    labels: [norad, name, observer]
+  - name: satellite_range_meters
+    collector: satellites
+    description: Slant range from the observer to the satellite.
+    unit: metres
+    range: "~2e5 … ~4.5e7"
+    labels: [norad, name, observer]
+  - name: satellite_range_rate_meters_per_second
+    collector: satellites
+    description: Radial velocity (positive = receding); drives Doppler.
+    unit: metres/second
+    range: "~-8000 … 8000"
+    labels: [norad, name, observer]
+  - name: satellite_subpoint_latitude_degrees
+    collector: satellites
+    description: Latitude of the sub-satellite point.
+    unit: degrees
+    range: "-90 … 90"
+    labels: [norad, name, observer]
+  - name: satellite_subpoint_longitude_degrees
+    collector: satellites
+    description: Longitude of the sub-satellite point.
+    unit: degrees
+    range: "-180 … 180"
+    labels: [norad, name, observer]
+  - name: satellite_altitude_meters
+    collector: satellites
+    description: Satellite height above the WGS84 ellipsoid.
+    unit: metres
+    range: "~2e5 (LEO) … ~3.6e7 (GEO)"
+    labels: [norad, name, observer]
+    dashboard: true
+  - name: satellite_velocity_meters_per_second
+    collector: satellites
+    description: Orbital speed (geocentric).
+    unit: metres/second
+    range: "~3000 (GEO) … ~7800 (LEO)"
+    labels: [norad, name, observer]
+  - name: satellite_above_horizon
+    collector: satellites
+    description: 1 if above the horizon mask, else 0.
+    unit: boolean
+    range: "0 or 1"
+    labels: [norad, name, observer]
+  - name: satellite_sunlit
+    collector: satellites
+    description: 1 if the satellite is in sunlight, else 0.
+    unit: boolean
+    range: "0 or 1"
+    labels: [norad, name, observer]
+  - name: satellite_tle_epoch_timestamp_seconds
+    collector: satellites
+    description: Epoch of the current element set.
+    unit: unix seconds
+    range: "<= now"
+    labels: [norad, name, observer]
+  - name: satellite_tle_age_seconds
+    collector: satellites
+    description: Age of the current element set (now - epoch). SGP4 accuracy decays with age.
+    unit: seconds
+    range: ">= 0 (alert if > 3 days)"
+    labels: [norad, name, observer]
+    dashboard: true
+  - name: satellite_next_pass_aos_timestamp_seconds
+    collector: satellites
+    description: Next pass acquisition-of-signal time.
+    unit: unix seconds
+    range: ">= now"
+    labels: [norad, name, observer]
+  - name: satellite_next_pass_los_timestamp_seconds
+    collector: satellites
+    description: Next pass loss-of-signal time.
+    unit: unix seconds
+    range: ">= now"
+    labels: [norad, name, observer]
+  - name: satellite_next_pass_max_elevation_degrees
+    collector: satellites
+    description: Peak elevation of the next pass.
+    unit: degrees
+    range: "0 … 90"
+    labels: [norad, name, observer]
+    dashboard: true
+  - name: satellite_transmitter_downlink_hertz
+    collector: satellites
+    description: Transmitter downlink frequency (from SatNOGS).
+    unit: hertz
+    range: "~3e7 … ~3e10"
+    labels: [norad, uuid, mode, status]
+  - name: satellite_transmitter_uplink_hertz
+    collector: satellites
+    description: Transmitter uplink frequency (from SatNOGS).
+    unit: hertz
+    range: "~3e7 … ~3e10"
+    labels: [norad, uuid, mode, status]
+  - name: satellite_transmitter_baud
+    collector: satellites
+    description: Transmitter symbol rate.
+    unit: baud
+    range: "~50 … ~1e6"
+    labels: [norad, uuid, mode, status]
+  - name: satellite_doppler_hertz
+    collector: satellites
+    description: Doppler shift on the downlink at the current range rate.
+    unit: hertz
+    range: "~-1e5 … 1e5"
+    labels: [norad, uuid, observer]
+  - name: satellite_catalog_size
+    collector: satellites
+    description: Number of satellites in the offline catalog.
+    unit: count
+    range: ">= 0"
+    labels: []
+  - name: satellite_catalog_with_transmitters
+    collector: satellites
+    description: Catalog satellites that have at least one transmitter.
+    unit: count
+    range: ">= 0"
+    labels: []
+  - name: satellite_tracked_count
+    collector: satellites
+    description: Satellites tracked live for the observer (watchlist ∪ groups).
+    unit: count
+    range: ">= 0"
+    labels: [observer]
+    dashboard: true
+  - name: satellite_data_update_success
+    collector: satellites
+    description: 1 if the source's last fetch attempt succeeded, else 0.
+    unit: boolean
+    range: "0 or 1"
+    labels: [source]
+    dashboard: true
+  - name: satellite_data_update_timestamp_seconds
+    collector: satellites
+    description: Last successful fetch time, per source.
+    unit: unix seconds
+    range: "<= now"
+    labels: [source]
+  - name: satellite_data_age_seconds
+    collector: satellites
+    description: Seconds since the source's last successful fetch.
+    unit: seconds
+    range: ">= 0"
+    labels: [source]
+  - name: satellite_data_fetch_duration_seconds
+    collector: satellites
+    description: Duration of the source's last fetch.
+    unit: seconds
+    range: ">= 0"
+    labels: [source]
+  - name: satellite_scrape_duration_seconds
+    collector: satellites
+    description: Time spent building the satellite snapshot for a scrape.
+    unit: seconds
+    range: ">= 0"
+    labels: []
+    dashboard: true
+
+  # ---------------- space_weather ----------------
+  - name: space_weather_planetary_k_index
+    collector: space_weather
+    description: Planetary K-index (geomagnetic activity); >= 5 is a geomagnetic storm.
+    unit: index
+    range: "0 … 9"
+    labels: []
+    dashboard: true
+  - name: space_weather_solar_wind_speed_km_per_second
+    collector: space_weather
+    description: Solar-wind bulk speed at L1.
+    unit: km/second
+    range: "~250 … ~900"
+    labels: []
+    dashboard: true
+  - name: space_weather_imf_bz_nanotesla
+    collector: space_weather
+    description: Interplanetary magnetic field Bz (GSM); strongly negative drives storms.
+    unit: nanotesla
+    range: "~-50 … 50"
+    labels: []
+    dashboard: true
+  - name: space_weather_imf_bt_nanotesla
+    collector: space_weather
+    description: Interplanetary magnetic field total strength Bt.
+    unit: nanotesla
+    range: "0 … ~50"
+    labels: []
+  - name: space_weather_f107_solar_radio_flux
+    collector: space_weather
+    description: 10.7 cm solar radio flux (F10.7); proxy for solar activity.
+    unit: sfu
+    range: "~60 … ~300"
+    labels: []
+    dashboard: true
+  - name: space_weather_goes_xray_flux_watts_per_m2
+    collector: space_weather
+    description: GOES long-band (0.1-0.8 nm) X-ray flux; M >= 1e-5, X >= 1e-4.
+    unit: W/m^2
+    range: "~1e-9 … ~1e-3"
+    labels: []
+    dashboard: true
+  - name: space_weather_data_update_success
+    collector: space_weather
+    description: 1 if the product's last fetch attempt succeeded, else 0.
+    unit: boolean
+    range: "0 or 1"
+    labels: [source]
+  - name: space_weather_data_update_timestamp_seconds
+    collector: space_weather
+    description: Last successful fetch time, per product.
+    unit: unix seconds
+    range: "<= now"
+    labels: [source]
+  - name: space_weather_data_age_seconds
+    collector: space_weather
+    description: Seconds since the product's last successful fetch.
+    unit: seconds
+    range: ">= 0"
+    labels: [source]
+  - name: space_weather_scrape_duration_seconds
+    collector: space_weather
+    description: Time spent building the space-weather snapshot for a scrape.
+    unit: seconds
+    range: ">= 0"
+    labels: []

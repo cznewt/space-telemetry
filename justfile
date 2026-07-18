@@ -58,9 +58,13 @@ publish: image push
 # --- Observability library (observ-viz pack) ---
 # Rendered through the observ-lib image (observ-viz on the jpath; no local jsonnet/jb).
 
-# Render the observ-lib into dashboards/ alerts/ rules/ + inject signals into docs
+# Render the observ-lib into dashboards/ alerts/ rules/ + dashboard signals
 observ-lib-build:
     docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/repo -w "/repo/{{OBSERV_LIB}}" --entrypoint python3 {{OBSERV_LIB_IMAGE}} render.py
+
+# Render signals.yaml into the docs "Signals" tables (README + collector pages)
+signals-build:
+    docker run --rm --user "$(id -u):$(id -g)" -v "$PWD":/repo -w /repo --entrypoint python3 {{OBSERV_LIB_IMAGE}} scripts/render_signals.py
 
 # Push the rendered dashboard(s) to Grafana. Set GRAFANA_URL + GRAFANA_TOKEN in .env.
 grafana-push:

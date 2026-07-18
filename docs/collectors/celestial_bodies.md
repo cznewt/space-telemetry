@@ -22,19 +22,23 @@ position when observing).
 | betelgeuse | 5.92 | +7.41 | 0.50 | | regulus | 10.14 | +11.97 | 1.35 |
 | achernar | 1.63 | −57.24 | 0.46 | | polaris | 2.53 | +89.26 | 1.98 |
 
-## Metrics
+## Signals
 
-Labels `star,observer`.
+Every metric this collector emits (rendered from `signals.yaml`):
 
-| Metric | Meaning |
-|---|---|
-| `star_altitude_degrees` | apparent altitude above the horizon |
-| `star_azimuth_degrees` | azimuth, degrees clockwise from north |
-| `star_above_horizon` | 1 if above `min_elevation_deg` |
-| `star_magnitude` | apparent visual magnitude (catalog constant) |
-| `star_next_rise_timestamp_seconds` | next rise (UNIX seconds) |
-| `star_next_set_timestamp_seconds` | next set (UNIX seconds) |
-| `star_scrape_duration_seconds` | (no labels) snapshot build time per scrape |
+<!-- signals:start -->
+★ = on the observ-lib dashboard/alerts.
+
+| Signal | Description | Unit | Range | Labels |
+|---|---|---|---|---|
+| `star_altitude_degrees` ★ | Apparent altitude of the star above the horizon. | degrees | -90 … 90 | `star`, `observer` |
+| `star_azimuth_degrees` | Apparent azimuth, clockwise from north. | degrees | 0 … 360 | `star`, `observer` |
+| `star_above_horizon` | 1 if the star is above the horizon mask, else 0. | boolean | 0 or 1 | `star`, `observer` |
+| `star_magnitude` | Apparent visual magnitude (catalog constant; lower is brighter). | magnitude | -1.5 … 2 (catalog) | `star`, `observer` |
+| `star_next_rise_timestamp_seconds` | Next rise time (absent for circumpolar stars). | unix seconds | >= now | `star`, `observer` |
+| `star_next_set_timestamp_seconds` | Next set time (absent for circumpolar stars). | unix seconds | >= now | `star`, `observer` |
+| `star_scrape_duration_seconds` | Time spent building the celestial-body snapshot for a scrape. | seconds | >= 0 (typ. < 0.05) | — |
+<!-- signals:end -->
 
 ## Notes
 
@@ -45,15 +49,3 @@ Labels `star,observer`.
 - **Adding stars:** extend `STAR_CATALOG` in
   `space_telemetry/collectors/celestial_bodies/stars.py` with
   `(name, ra_hours, dec_degrees, magnitude)`, then list the name in `stars:`.
-
-## Dashboard signals
-
-The [observ-lib](https://github.com/cznewt/space-telemetry/tree/main/operations/space-telemetry-observ-lib)
-dashboard and alerts use these signals for this collector (queries rendered from
-the mixin sources):
-
-<!-- signals:start -->
-| Signal | Query | Unit |
-|---|---|---|
-| Star altitude | `star_altitude_degrees{job=~"$job", observer=~"$observer"}` | degree |
-<!-- signals:end -->
