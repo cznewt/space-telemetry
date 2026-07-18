@@ -1,0 +1,40 @@
+// Grafana Alloy module fragment for the space-telemetry exporter.
+//
+// Import it and call `space_telemetry.scrape` with the exporter target(s) and a
+// metrics receiver. The `job` label is set to "space-telemetry" so the observ-lib
+// dashboard/alerts (selector job=~"$job") key off it.
+//
+//   import.file "space_telemetry" { filename = "space-telemetry.alloy" }
+//
+//   space_telemetry.scrape "default" {
+//     targets    = [{ "__address__" = "space-telemetry:9110" }]
+//     forward_to = [prometheus.remote_write.mimir.receiver]
+//   }
+
+declare "scrape" {
+	argument "targets" {
+		// Exporter target(s), e.g. [{ "__address__" = "space-telemetry:9110" }].
+	}
+
+	argument "forward_to" {
+		// Prometheus receivers to send the scraped metrics to.
+	}
+
+	argument "job_name" {
+		optional = true
+		default  = "space-telemetry"
+	}
+
+	argument "scrape_interval" {
+		optional = true
+		default  = "15s"
+	}
+
+	prometheus.scrape "space_telemetry" {
+		targets         = argument.targets.value
+		forward_to      = argument.forward_to.value
+		job_name        = argument.job_name.value
+		scrape_interval = argument.scrape_interval.value
+		metrics_path    = "/metrics"
+	}
+}
