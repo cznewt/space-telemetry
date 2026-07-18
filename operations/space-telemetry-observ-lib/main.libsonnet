@@ -15,7 +15,9 @@ local satmap = import 'satmap.libsonnet';
 
     // Per-dashboard configs. varMetric drives $job; varLabels add cascading multi-selects.
     local weatherCfg = cfg { uid: 'space-telemetry-weather', dashboardTitle: 'Space Weather', dashboardTags: ['space-telemetry', 'space-weather'], varMetric: 'space_weather_planetary_k_index', varLabels: [] };
-    local satCfg = cfg { uid: 'space-telemetry-satellites', dashboardTitle: 'Satellites', dashboardTags: ['space-telemetry', 'satellites'], varMetric: 'satellite_altitude_meters', varLabels: ['observer', 'name'] };
+    // observer -> group cascade (drop the $name cascade: $group=$__all does not expand
+    // inside the nested $name query, which pinned everything to the first group).
+    local satCfg = cfg { uid: 'space-telemetry-satellites', dashboardTitle: 'Satellites', dashboardTags: ['space-telemetry', 'satellites'], varMetric: 'satellite_altitude_meters', varLabels: ['observer', 'group'] };
     local bodyCfg = cfg { uid: 'space-telemetry-bodies', dashboardTitle: 'Bodies & Stars', dashboardTags: ['space-telemetry', 'astronomy'], varMetric: 'body_altitude_degrees', varLabels: ['observer', 'body'] };
 
     // ---------------- Space Weather ----------------
@@ -45,6 +47,9 @@ local satmap = import 'satmap.libsonnet';
         catalog_stat: s.catalogSize.asStat('Catalog size'),
         sat_sources: s.satSourcesOk.asStat('Sources healthy'),
       } },
+      { title: 'By group (colour key for the map)', width: 8, height: 7, elements: {
+        bygroup: satmap.bygroup(satCfg),
+      } },
       { title: 'External data sources (CelesTrak / SatNOGS)', width: 12, height: 6, elements: {
         src_status: s.satSourceOk.asTable('Source sync (1 = ok)'),
         src_age: s.satSourceAge.asTable('Source age'),
@@ -59,7 +64,7 @@ local satmap = import 'satmap.libsonnet';
       } },
     ];
     local satTabs = [
-      { title: 'Positions — map', width: 24, height: 16, elements: { posmap: satmap.map(satCfg) } },
+      { title: 'Positions — map', width: 24, height: 20, elements: { posmap: satmap.map(satCfg) } },
       { title: 'Positions — table', width: 24, height: 16, elements: { postable: satmap.table(satCfg) } },
     ];
 

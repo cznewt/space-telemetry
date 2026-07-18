@@ -32,6 +32,21 @@ def offset_label(minutes):
     return f"{sign}{m // 60}h" if m % 60 == 0 else f"{sign}{m}m"
 
 
+def group_label(sat):
+    """A friendly group for the map/legend: the ISS and CSS station complexes are
+    split out by name; otherwise the most specific CelesTrak group the satellite is
+    in (weather/noaa/goes before the catch-all stations)."""
+    name = sat.name.upper()
+    if name.startswith("ISS"):
+        return "iss"
+    if name.startswith("CSS"):
+        return "css"
+    for g in ("weather", "noaa", "goes", "stations"):
+        if g in sat.groups:
+            return g
+    return next(iter(sat.groups), "other")
+
+
 def topocentric_state(earthsat, topos, eph, t) -> dict:
     geocentric = earthsat.at(t)
     subpoint = wgs84.subpoint(geocentric)
@@ -137,6 +152,7 @@ class SatelliteProvider:
                 above_horizon=geo["elevation_deg"] > mask, sunlit=geo["sunlit"],
                 tle_epoch_ts=sat.epoch_ts,
                 next_aos_ts=aos, next_los_ts=los, next_max_elev_deg=max_elev,
+                group=group_label(sat),
                 transmitters=sat.transmitters,
             ))
         return out
@@ -156,6 +172,12 @@ class SatelliteProvider:
                     continue
                 out.append((sat.norad_id, sat.name, offset_label(minutes), lat, lon))
         return out
+
+    def infos(self):
+        """(norad, name, group) for the tracked set. Observer-independent, emitted once."""
+        catalog = self.holder.get()
+        return [(sat.norad_id, sat.name, group_label(sat))
+                for sat in self._tracked(catalog)]
 
     def catalog(self):
         return self.holder.get()

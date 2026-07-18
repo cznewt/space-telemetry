@@ -10,7 +10,7 @@ from time import perf_counter, time
 
 from prometheus_client.core import GaugeMetricFamily
 
-_SAT_L = ["norad", "name", "observer"]
+_SAT_L = ["norad", "name", "observer", "group"]
 _TX_L = ["norad", "uuid", "mode", "status"]
 _C = 299_792_458.0  # speed of light, m/s
 
@@ -60,7 +60,7 @@ class SatelliteCollector:
         seen_tx: set = set()
         for obs, states in per_observer:
             for s in states:
-                lv = [str(s.norad_id), s.name, obs]
+                lv = [str(s.norad_id), s.name, obs, s.group]
                 elev.add_metric(lv, s.elevation_deg)
                 az.add_metric(lv, s.azimuth_deg)
                 rng.add_metric(lv, s.range_m)
@@ -112,6 +112,15 @@ class SatelliteCollector:
                 track_lat.add_metric(lv, lat)
                 track_lon.add_metric(lv, lon)
         yield from (track_lat, track_lon)
+
+        # Group membership for the map/legend (observer-independent, emit once).
+        info = GaugeMetricFamily("satellite_info",
+                                 "Static satellite info; value is always 1, detail is in the labels.",
+                                 labels=["norad", "name", "group"])
+        if self.providers:
+            for norad, name, group in self.providers[0].infos():
+                info.add_metric([str(norad), name, group], 1.0)
+        yield info
 
         total, with_tx = self.providers[0].catalog().stats() if self.providers else (0, 0)
         size = GaugeMetricFamily("satellite_catalog_size", "Satellites in the offline catalog.")

@@ -38,8 +38,8 @@ between the markers by hand — re-render instead).
 |---|---|---|
 | Body altitude | `body_altitude_degrees{job=~"$job", observer=~"$observer", body=~"$body"}` | degree |
 | Bodies above horizon | `sum by (observer) (body_above_horizon{job=~"$job", observer=~"$observer"})` | short |
-| Moon illuminated | `moon_illuminated_fraction{job=~"$job", observer=~"$observer"}` | percentunit |
-| Moon phase | `moon_phase_degrees{job=~"$job", observer=~"$observer"}` | degree |
+| Moon illuminated | `avg without (instance, pod) (moon_illuminated_fraction{job=~"$job", observer=~"$observer"})` | percentunit |
+| Moon phase | `avg without (instance, pod) (moon_phase_degrees{job=~"$job", observer=~"$observer"})` | degree |
 
 #### Celestial bodies
 
@@ -52,10 +52,10 @@ between the markers by hand — re-render instead).
 | Signal | Query | Unit |
 |---|---|---|
 | Satellites tracked | `satellite_tracked_count{job=~"$job", observer=~"$observer"}` | short |
-| Satellite elevation | `satellite_elevation_degrees{job=~"$job", observer=~"$observer", name=~"$name"}` | degree |
-| Satellite altitude | `satellite_altitude_meters{job=~"$job", observer=~"$observer", name=~"$name"}` | lengthm |
-| TLE age | `max by (name) (satellite_tle_age_seconds{job=~"$job", observer=~"$observer"})` | s |
-| Next pass max elevation | `max by (name) (satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer"})` | degree |
+| Satellite elevation | `satellite_elevation_degrees{job=~"$job", observer=~"$observer", group=~"$group"}` | degree |
+| Satellite altitude | `satellite_altitude_meters{job=~"$job", observer=~"$observer", group=~"$group"}` | lengthm |
+| TLE age | `max by (name) (satellite_tle_age_seconds{job=~"$job", observer=~"$observer", group=~"$group"})` | s |
+| Next pass max elevation | `max by (name) (satellite_next_pass_max_elevation_degrees{job=~"$job", observer=~"$observer", group=~"$group"})` | degree |
 | Satellite sources healthy | `sum(satellite_data_update_success{job=~"$job"})` | short |
 
 #### Space weather

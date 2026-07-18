@@ -20,7 +20,7 @@
   jobSelector: 'job=~"$job"',
   selector: 'job=~"$job", observer=~"$observer"',
   bodySelector: 'job=~"$job", observer=~"$observer", body=~"$body"',
-  satSelector: 'job=~"$job", observer=~"$observer", name=~"$name"',
+  satSelector: 'job=~"$job", observer=~"$observer", group=~"$group"',
 
   // Static selector for ALERT expressions (alerts cannot use dashboard vars).
   exporterSelector: 'job="space-telemetry"',
