@@ -154,6 +154,18 @@ signals:
     unit: degrees
     range: "-180 … 180"
     labels: [norad, name, observer]
+  - name: satellite_track_latitude_degrees
+    collector: satellites
+    description: Sub-satellite latitude at a time offset (the ground track shown on the map).
+    unit: degrees
+    range: "-90 … 90"
+    labels: [norad, name, offset]
+  - name: satellite_track_longitude_degrees
+    collector: satellites
+    description: Sub-satellite longitude at a time offset (the ground track shown on the map).
+    unit: degrees
+    range: "-180 … 180"
+    labels: [norad, name, offset]
   - name: satellite_altitude_meters
     collector: satellites
     description: Satellite height above the WGS84 ellipsoid.

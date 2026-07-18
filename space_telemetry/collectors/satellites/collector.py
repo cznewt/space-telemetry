@@ -99,6 +99,20 @@ class SatelliteCollector:
         yield from (elev, az, rng, rate, sublat, sublon, salt, vel, above, sun,
                     epoch, age, aos, los, maxel, downlink, uplink, baud, doppler)
 
+        # Ground track: sub-point at each time offset (observer-independent, emit once).
+        track_lat = GaugeMetricFamily("satellite_track_latitude_degrees",
+                                      "Sub-satellite latitude at a time offset (ground track for the map).",
+                                      labels=["norad", "name", "offset"])
+        track_lon = GaugeMetricFamily("satellite_track_longitude_degrees",
+                                      "Sub-satellite longitude at a time offset (ground track for the map).",
+                                      labels=["norad", "name", "offset"])
+        if self.providers:
+            for norad, name, offset, lat, lon in self.providers[0].tracks():
+                lv = [str(norad), name, offset]
+                track_lat.add_metric(lv, lat)
+                track_lon.add_metric(lv, lon)
+        yield from (track_lat, track_lon)
+
         total, with_tx = self.providers[0].catalog().stats() if self.providers else (0, 0)
         size = GaugeMetricFamily("satellite_catalog_size", "Satellites in the offline catalog.")
         size.add_metric([], float(total))

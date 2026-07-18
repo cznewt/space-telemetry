@@ -66,6 +66,8 @@ or `satnogs:satellites`.
 | `satellite_range_rate_meters_per_second` | Radial velocity (positive = receding); drives Doppler. | metres/second | ~-8000 … 8000 | `norad`, `name`, `observer` |
 | `satellite_subpoint_latitude_degrees` | Latitude of the sub-satellite point. | degrees | -90 … 90 | `norad`, `name`, `observer` |
 | `satellite_subpoint_longitude_degrees` | Longitude of the sub-satellite point. | degrees | -180 … 180 | `norad`, `name`, `observer` |
+| `satellite_track_latitude_degrees` | Sub-satellite latitude at a time offset (the ground track shown on the map). | degrees | -90 … 90 | `norad`, `name`, `offset` |
+| `satellite_track_longitude_degrees` | Sub-satellite longitude at a time offset (the ground track shown on the map). | degrees | -180 … 180 | `norad`, `name`, `offset` |
 | `satellite_altitude_meters` ★ | Satellite height above the WGS84 ellipsoid. | metres | ~2e5 (LEO) … ~3.6e7 (GEO) | `norad`, `name`, `observer` |
 | `satellite_velocity_meters_per_second` | Orbital speed (geocentric). | metres/second | ~3000 (GEO) … ~7800 (LEO) | `norad`, `name`, `observer` |
 | `satellite_above_horizon` | 1 if above the horizon mask, else 0. | boolean | 0 or 1 | `norad`, `name`, `observer` |

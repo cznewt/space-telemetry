@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     satnogs_satellites_refresh_hours: float = 168.0
     pass_lookahead_hours: float = 24.0
     sat_pass_cache_ttl_s: float = 60.0
+    sat_track_offsets_minutes: Annotated[list[int], NoDecode] = [-60, -30, -15, -5, 0, 5, 15, 30, 60]
 
     # --- Space weather (NOAA SWPC) ---
     space_weather_enabled: bool = True
@@ -118,9 +119,9 @@ class Settings(BaseSettings):
             return [x.strip().lower() for x in value.split(",") if x.strip()]
         return value
 
-    @field_validator("sat_watchlist", mode="before")
+    @field_validator("sat_watchlist", "sat_track_offsets_minutes", mode="before")
     @classmethod
-    def _split_watchlist(cls, value):
+    def _split_int_list(cls, value):
         if isinstance(value, str):
             return [int(x) for x in value.replace(",", " ").split() if x.strip()]
         return value

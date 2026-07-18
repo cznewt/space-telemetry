@@ -4,6 +4,7 @@
 //   p.grafana.dashboard      // a Grafana dashboard (.toResource() for JSON)
 //   p.asMonitoringMixin()    // { grafanaDashboards+, prometheusAlerts+ }
 local pack = import 'libs/common-lib/pack.libsonnet';
+local satmap = import 'satmap.libsonnet';
 
 {
   new(config={}):
@@ -52,11 +53,21 @@ local pack = import 'libs/common-lib/pack.libsonnet';
         },
       },
       {
+        title: 'Satellite ground track',
+        width: 24,
+        height: 12,
+        elements: {
+          map: satmap(cfg),
+        },
+      },
+      {
         title: 'Space weather',
-        width: 8,
+        width: 12,
         height: 7,
         elements: {
-          bz: s.imfBz.asTimeSeries('IMF Bz'),
+          kp: s.kp.asTimeSeries('Planetary Kp'),
+          wind: s.solarWind.asTimeSeries('Solar wind speed (km/s)'),
+          bz: s.imfBz.asTimeSeries('IMF Bz (nT)'),
           xray: s.xray.asTimeSeries('GOES X-ray flux'),
           f107: s.f107.asStat('F10.7 flux'),
         },
