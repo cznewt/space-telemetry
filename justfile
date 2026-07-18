@@ -6,6 +6,8 @@ set dotenv-load := true
 REGISTRY := "ghcr.io"
 IMAGE := "cznewt/space-telemetry"
 TAG := `cat VERSION`
+OBSERV_LIB := "operations/space-telemetry-observ-lib"
+OBSERV_LIB_IMAGE := "ghcr.io/cznewt/observ-lib:latest"
 
 default:
   just --list
@@ -52,3 +54,14 @@ push:
 # Build and push in one go
 publish: image push
     @echo "published {{REGISTRY}}/{{IMAGE}}:{{TAG}} (+ :latest)"
+
+# --- Observability library (observ-viz pack) ---
+# Rendered through the observ-lib image (observ-viz on the jpath; no local jsonnet/jb).
+
+# Render the observ-lib into dashboards/ alerts/ rules/ (committed outputs)
+observ-lib-build:
+    docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/{{OBSERV_LIB}}":/work -w /work --entrypoint python3 {{OBSERV_LIB_IMAGE}} render.py
+
+# Push the rendered dashboard(s) to Grafana. Set GRAFANA_URL + GRAFANA_TOKEN in .env.
+grafana-push:
+    python3 {{OBSERV_LIB}}/push.py {{OBSERV_LIB}}/dashboards/*.json

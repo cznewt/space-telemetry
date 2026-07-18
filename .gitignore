@@ -9,4 +9,4 @@ build/
 dist/
 site/
 _site/
-space-telemetry.yaml
+/space-telemetry.yaml

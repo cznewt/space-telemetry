@@ -1,0 +1,46 @@
+groups:
+- name: space-telemetry
+  rules:
+  - alert: SpaceTelemetryExporterDown
+    annotations:
+      description: '{{ $labels.instance }} has been unreachable for more than 5m.'
+      summary: space-telemetry exporter is down.
+    expr: up{job="space-telemetry"} == 0
+    for: 5m
+    labels:
+      severity: critical
+  - alert: SpaceTelemetrySourceFailing
+    annotations:
+      description: Source {{ $labels.source }} on {{ $labels.instance }} last fetch
+        did not succeed.
+      summary: A space-telemetry data source is failing.
+    expr: satellite_data_update_success{job="space-telemetry"} == 0 or space_weather_data_update_success{job="space-telemetry"}
+      == 0
+    for: 15m
+    labels:
+      severity: warning
+  - alert: SpaceTelemetryTLEStale
+    annotations:
+      description: The oldest element set is over 259200s old; the updater may be
+        stuck.
+      summary: Satellite TLEs are stale.
+    expr: max(satellite_tle_age_seconds{job="space-telemetry"}) > 259200
+    for: 1h
+    labels:
+      severity: warning
+  - alert: GeomagneticStorm
+    annotations:
+      description: The planetary K-index has reached storm level (>= 5).
+      summary: Geomagnetic storm in progress (Kp {{ $value }}).
+    expr: space_weather_planetary_k_index{job="space-telemetry"} >= 5
+    for: 0m
+    labels:
+      severity: info
+  - alert: SolarFlareMClass
+    annotations:
+      description: GOES long-band X-ray flux has reached >= 1e-5 W/m^2.
+      summary: M-class (or stronger) solar flare.
+    expr: space_weather_goes_xray_flux_watts_per_m2{job="space-telemetry"} >= 1e-5
+    for: 0m
+    labels:
+      severity: info

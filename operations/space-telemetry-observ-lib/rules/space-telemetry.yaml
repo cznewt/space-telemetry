@@ -1,0 +1,7 @@
+groups:
+- name: space-telemetry
+  rules:
+  - expr: sum by (observer) (body_above_horizon{job="space-telemetry"})
+    record: observer:body_above_horizon:sum
+  - expr: sum(satellite_tracked_count{job="space-telemetry"})
+    record: job:satellite_tracked_count:sum

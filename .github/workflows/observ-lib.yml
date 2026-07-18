@@ -1,0 +1,50 @@
+name: observ-lib
+
+# Re-render the space-telemetry-observ-lib pack and fail if the committed
+# dashboards/alerts/rules have drifted. Rendered through the observ-lib image
+# (observ-viz baked in, no jb/vendor). Mirrors the other exporters' mixin CI.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - operations/space-telemetry-observ-lib/**
+      - .github/workflows/observ-lib.yml
+  push:
+    branches-ignore: ["main"]
+    paths:
+      - operations/space-telemetry-observ-lib/**
+      - .github/workflows/observ-lib.yml
+
+permissions:
+  contents: read
+  packages: read  # to pull ghcr.io/cznewt/observ-lib
+
+jobs:
+  render:
+    name: Render mixin
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: operations/space-telemetry-observ-lib
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Render dashboards + alerts + rules
+        run: |
+          docker run --rm -v "$PWD":/work -w /work \
+            --entrypoint python3 ghcr.io/cznewt/observ-lib:latest render.py
+
+      - name: Fail if committed output drifted
+        run: |
+          if ! git diff --quiet -- dashboards alerts rules; then
+            echo "::error::Rendered mixin differs from committed output. Run 'just observ-lib-build' and commit."
+            git --no-pager diff -- dashboards alerts rules
+            exit 1
+          fi
