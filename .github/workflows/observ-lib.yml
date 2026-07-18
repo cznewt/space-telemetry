@@ -36,15 +36,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Render dashboards + alerts + rules
+      - name: Render dashboards + alerts + rules + docs signals
         run: |
-          docker run --rm -v "$PWD":/work -w /work \
+          docker run --rm -v "$GITHUB_WORKSPACE":/repo -w /repo/operations/space-telemetry-observ-lib \
             --entrypoint python3 ghcr.io/cznewt/observ-lib:latest render.py
 
       - name: Fail if committed output drifted
+        working-directory: ${{ github.workspace }}
         run: |
-          if ! git diff --quiet -- dashboards alerts rules; then
-            echo "::error::Rendered mixin differs from committed output. Run 'just observ-lib-build' and commit."
-            git --no-pager diff -- dashboards alerts rules
+          if ! git diff --quiet; then
+            echo "::error::Rendered mixin/signals differ from committed output. Run 'just observ-lib-build' and commit."
+            git --no-pager diff
             exit 1
           fi
