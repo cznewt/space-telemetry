@@ -1,0 +1,13 @@
+# Space-weather focus: NOAA SWPC only, refreshed briskly. Minimal sky, no satellites.
+# SWPC metrics carry no observer label, so the observer here only affects the Sun row.
+
+observer_name: earth
+
+bodies: [sun]
+stars: []
+sat_enabled: false
+
+swpc_enabled: true
+swpc_refresh_minutes: 3
+
+port: 9110

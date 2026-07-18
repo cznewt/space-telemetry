@@ -1,0 +1,20 @@
+# Several ground stations. Every sky/satellite series is labelled observer=<name>,
+# so one Prometheus can compare passes/positions across sites.
+
+observers:
+  - {name: prague, latitude_deg: 50.0755, longitude_deg: 14.4378, elevation_m: 200}
+  - {name: brno,   latitude_deg: 49.1951, longitude_deg: 16.6068, elevation_m: 237}
+  - {name: kosice, latitude_deg: 48.7164, longitude_deg: 21.2611, elevation_m: 206}
+
+min_elevation_deg: 0
+
+bodies: [sun, moon, mars, jupiter, saturn]
+stars: [sirius, vega, arcturus, polaris]
+
+sat_enabled: true
+sat_groups: [stations, amateur]
+sat_watchlist: [25544, 33591]              # ISS, NOAA-19
+
+swpc_enabled: true                         # space weather is global (no observer label)
+
+port: 9110

@@ -1,0 +1,51 @@
+site_name: Space Telemetry Exporter
+site_description: Prometheus/OTel exporter for space telemetry — sky (Sun/Moon/planets/stars), satellites (TLE/SGP4 + SatNOGS), and NOAA space weather.
+repo_url: https://github.com/cznewt/space-telemetry
+repo_name: cznewt/space-telemetry
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Overview: index.md
+  - Configuration: configuration.md
+  - Deployment: deployment.md
+  - Collectors:
+      - sky: collectors/sky.md
+      - Solar-system bodies: collectors/solar-system-bodies.md
+      - Celestial bodies: collectors/celestial-bodies.md
+      - Satellites: collectors/satellites.md
+      - Space weather (SWPC): collectors/swpc.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences

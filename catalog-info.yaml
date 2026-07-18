@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: space-telemetry
+  title: Space Telemetry Exporter
+  description: Prometheus/OTel exporter for space telemetry — solar-system bodies, stars, satellites (TLE/SGP4 + SatNOGS), and NOAA space weather.
+  tags:
+    - monitoring
+    - prometheus
+    - exporter
+    - astronomy
+  annotations:
+    github.com/project-slug: cznewt/space-telemetry
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: service
+  lifecycle: production
+  owner: cznewt

@@ -1,0 +1,23 @@
+# Weather-satellite ground station: track NOAA / GOES / Meteor groups plus a
+# hand-picked watchlist. Stars are off to keep cardinality down; the Sun/Moon
+# stay useful for day/night and illumination.
+
+observer_name: station
+observer_lat: 50.0755
+observer_lon: 14.4378
+observer_elevation_m: 200
+min_elevation_deg: 10                       # only reckon passes above 10°
+
+sat_enabled: true
+sat_groups: [weather, noaa, goes]
+sat_watchlist: [25544, 33591, 28654, 25338] # ISS, NOAA-19, NOAA-18, NOAA-15
+celestrak_format: tle
+tle_refresh_hours: 6
+pass_lookahead_hours: 24
+
+bodies: [sun, moon]
+stars: []
+
+swpc_enabled: true
+
+port: 9110

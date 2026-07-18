@@ -1,0 +1,22 @@
+# Single observer, all collectors on (the default shape).
+# Use with:  SPACE_TELEMETRY_CONFIG=examples/single-observer.yaml python -m space_telemetry
+
+observer_name: prague
+observer_lat: 50.0755
+observer_lon: 14.4378
+observer_elevation_m: 200
+
+min_elevation_deg: 5                       # ignore anything below 5° above the horizon
+
+bodies: [sun, moon, mercury, venus, mars, jupiter, saturn]
+stars: [sirius, vega, arcturus, capella, rigel, betelgeuse, aldebaran, polaris]
+
+sat_enabled: true
+sat_groups: [stations]
+sat_watchlist: [25544]                     # ISS
+
+swpc_enabled: true
+
+host: 0.0.0.0
+port: 9110
+cache_dir: data

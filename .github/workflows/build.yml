@@ -1,0 +1,26 @@
+name: Build space-telemetry
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - space_telemetry/**
+      - Dockerfile
+      - pyproject.toml
+      - VERSION
+      - .github/workflows/**
+
+jobs:
+  build-space-telemetry:
+    name: "Build space-telemetry"
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/docker-publish.yml
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    secrets: inherit
+    with:
+      APP_NAME: space-telemetry
+      APP_DIR: "."

@@ -1,0 +1,40 @@
+name: CI
+
+# Smoke-test on every PR and on non-main pushes, and confirm the image still
+# builds. Pushes to main go through build.yml, which also publishes to ghcr.
+on:
+  pull_request:
+  push:
+    branches-ignore: ["main"]
+
+jobs:
+  test:
+    name: Import + compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package
+        run: pip install -e .
+      - name: Import + compile check
+        run: |
+          python -c "import space_telemetry.app"
+          python -m compileall -q space_telemetry
+
+  build:
+    name: Build image (no push)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

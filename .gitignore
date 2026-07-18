@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data/
+*.bsp
+*.egg-info/
+build/
+dist/
+site/
+_site/
+space-telemetry.yaml

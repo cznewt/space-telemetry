@@ -1,0 +1,18 @@
+# Pure offline sky: solar-system bodies + stars only. After the one-time ephemeris
+# download there is NO network traffic at all — satellites and space weather are off.
+
+observer_name: home
+observer_lat: 50.0755
+observer_lon: 14.4378
+observer_elevation_m: 200
+
+bodies: [sun, moon, mercury, venus, mars, jupiter, saturn, uranus, neptune]
+stars: [sirius, canopus, arcturus, vega, capella, rigel, procyon, betelgeuse,
+        altair, aldebaran, antares, spica, pollux, fomalhaut, deneb, regulus, polaris]
+
+ephemeris: de440s.bsp                       # 1849–2150, ~32 MB (de421 is smaller, 1900–2050)
+
+sat_enabled: false
+swpc_enabled: false
+
+port: 9110

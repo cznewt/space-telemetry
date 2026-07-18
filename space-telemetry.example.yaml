@@ -1,0 +1,38 @@
+# space-telemetry configuration (optional).
+#
+# Copy to `space-telemetry.yaml` (or point $SPACE_TELEMETRY_CONFIG at a path).
+# Keys are the setting field names. Environment variables (SPACE_TELEMETRY_*)
+# still override anything set here.
+
+# One or more observers. Omit `observers` to use a single site via
+# observer_name / observer_lat / observer_lon / observer_elevation_m.
+observers:
+  - name: prague
+    latitude_deg: 50.0755
+    longitude_deg: 14.4378
+    elevation_m: 200
+  - name: brno
+    latitude_deg: 49.1951
+    longitude_deg: 16.6068
+    elevation_m: 237
+
+min_elevation_deg: 0
+
+# Sky — solar-system bodies + celestial bodies (stars)
+bodies: [sun, moon, mercury, venus, mars, jupiter, saturn]
+stars: [sirius, vega, arcturus, capella, rigel, betelgeuse, aldebaran, polaris]
+
+# Satellites
+sat_enabled: true
+sat_groups: [stations]
+sat_watchlist: [25544]
+tle_refresh_hours: 8
+
+# Space weather
+swpc_enabled: true
+swpc_refresh_minutes: 5
+
+# Serving
+host: 0.0.0.0
+port: 9110
+cache_dir: data
