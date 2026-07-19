@@ -179,5 +179,24 @@ class SatelliteProvider:
         return [(sat.norad_id, sat.name, group_label(sat))
                 for sat in self._tracked(catalog)]
 
+    def ground_tracks(self, span_min=48.0, step_min=3.0):
+        """Fine sub-satellite ground track over ±span_min per tracked sat, for the /map
+        view. Returns {norad: [[lat, lon], ...]} sampled every step_min minutes."""
+        catalog = self.holder.get()
+        now = self.ts.now()
+        steps = int(span_min / step_min)
+        out: dict[int, list] = {}
+        for sat in self._tracked(catalog):
+            pts = []
+            for i in range(-steps, steps + 1):
+                t = self.ts.tt_jd(now.tt + (i * step_min) / 1440.0)
+                try:
+                    lat, lon = subpoint_at(sat.earthsat, t)
+                except Exception:
+                    continue
+                pts.append([round(lat, 3), round(lon, 3)])
+            out[sat.norad_id] = pts
+        return out
+
     def catalog(self):
         return self.holder.get()
