@@ -217,13 +217,14 @@ class SatelliteProvider:
                 continue
         return out
 
-    def positions(self):
-        """Lightweight current sub-satellite positions for the /map feed: subpoint,
-        altitude, elevation, sunlit and group, with NO pass prediction — states() runs
-        find_events (seconds, cold) which the map does not need. Keeps /map cheap on
-        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit}]."""
+    def positions(self, offset_min=0.0):
+        """Lightweight sub-satellite positions for the /map feed: subpoint, altitude,
+        elevation, sunlit, group and footprint radius, with NO pass prediction — states()
+        runs find_events (seconds, cold) which the map does not need. ``offset_min`` shifts
+        the evaluation time from now (the /map time scrubber, ±1 day). Keeps /map cheap on
+        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit, footprint_km}]."""
         catalog = self.holder.get()
-        t = self.ts.now()
+        t = self.ts.tt_jd(self.ts.now().tt + offset_min / 1440.0) if offset_min else self.ts.now()
         out = []
         for sat in self._tracked(catalog):
             try:

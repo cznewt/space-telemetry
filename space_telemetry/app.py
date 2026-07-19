@@ -93,11 +93,12 @@ def _lon_delta(a: float, b: float) -> float:
     return min(d, 360.0 - d)
 
 
-def _visible_map_sats(p):
+def _visible_map_sats(p, offset_min=0.0):
     """Provider positions after collapsing ISS/CSS modules into one marker and hiding
     craft docked at a station. Returns position dicts (norad, name, group, lat, lon,
-    alt_m, elevation, sunlit); shared by the /map position and track feeds."""
-    raw = p.positions()
+    alt_m, elevation, sunlit, footprint_km); shared by the /map position and track feeds.
+    ``offset_min`` shifts the evaluation time (the /map time scrubber)."""
+    raw = p.positions(offset_min)
     anchors = [(r["lat"], r["lon"]) for r in raw if r["group"] in _STATIONS]
 
     def at_station(lat, lon):
@@ -125,7 +126,7 @@ def _positions_fn(settings, sat_providers, observers):
     obs = [{"name": o.name, "lat": round(o.latitude_deg, 4), "lon": round(o.longitude_deg, 4)}
            for o in observers]
 
-    def data() -> dict:
+    def data(offset_min=0.0) -> dict:
         if not (settings.sat_enabled and sat_providers):
             return {"satellites": [], "observers": obs}
         sats = [{
@@ -135,7 +136,7 @@ def _positions_fn(settings, sat_providers, observers):
             "elevation": round(r["elevation"], 1),
             "sunlit": r["sunlit"],
             "footprint_km": round(r["footprint_km"]),
-        } for r in _visible_map_sats(sat_providers[0])]
+        } for r in _visible_map_sats(sat_providers[0], offset_min)]
         return {"satellites": sats, "observers": obs}
     return data
 
@@ -149,7 +150,8 @@ def _tracks_fn(settings, sat_providers):
         p = sat_providers[0]
         tracks = p.ground_tracks()
         return {"tracks": [
-            {"name": r["name"], "group": r["group"], "track": tracks.get(r["norad"], [])}
+            {"name": r["name"], "group": r["group"], "alt": round(r["alt_m"] / 1000.0),
+             "track": tracks.get(r["norad"], [])}
             for r in _visible_map_sats(p)
         ]}
     return data
