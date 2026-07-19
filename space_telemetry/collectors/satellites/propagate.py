@@ -179,10 +179,11 @@ class SatelliteProvider:
         return [(sat.norad_id, sat.name, group_label(sat))
                 for sat in self._tracked(catalog)]
 
-    def ground_tracks(self, steps=60):
-        """One full orbit of sub-satellite ground track per tracked sat, for the /map
-        view. The span is the satellite's own orbital period (2π / mean motion), centred
-        on now, sampled in `steps` points. {norad: [[lat, lon], ...]}."""
+    def ground_tracks(self, orbits=10, steps_per_orbit=24):
+        """Forward ground track per tracked sat, for the /map view: from now out to
+        `orbits` future orbital periods (2π / mean motion), sampled at `steps_per_orbit`
+        points per orbit. Starts at the current sub-point so the line joins the marker.
+        Vectorised over the whole time span. {norad: [[lat, lon], ...]}."""
         catalog = self.holder.get()
         now = self.ts.now()
         out: dict[int, list] = {}
@@ -191,16 +192,16 @@ class SatelliteProvider:
                 period_min = 2.0 * np.pi / sat.earthsat.model.no_kozai  # no_kozai: rad/min
             except Exception:
                 period_min = 95.0
-            step = period_min / steps
-            pts = []
-            for i in range(-steps // 2, steps // 2 + 1):
-                t = self.ts.tt_jd(now.tt + (i * step) / 1440.0)
-                try:
-                    lat, lon = subpoint_at(sat.earthsat, t)
-                except Exception:
-                    continue
-                pts.append([round(lat, 3), round(lon, 3)])
-            out[sat.norad_id] = pts
+            n = max(1, int(steps_per_orbit * orbits))
+            offsets_min = np.linspace(0.0, period_min * orbits, n + 1)
+            t = self.ts.tt_jd(now.tt + offsets_min / 1440.0)
+            try:
+                sub = wgs84.subpoint(sat.earthsat.at(t))
+                out[sat.norad_id] = np.round(
+                    np.column_stack([sub.latitude.degrees, sub.longitude.degrees]), 3
+                ).tolist()
+            except Exception:
+                continue
         return out
 
     def catalog(self):
