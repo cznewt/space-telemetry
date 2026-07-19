@@ -110,43 +110,64 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   html,body,#map{height:100%;margin:0}
-  #hud,#legend{position:absolute;background:rgba(18,18,24,.85);color:#eee;
-    font:13px system-ui,-apple-system,sans-serif;padding:7px 12px;border-radius:8px;z-index:1}
-  #hud{top:10px;left:10px}
-  #legend{bottom:22px;left:10px;line-height:1.75}
-  #legend b{font-size:11px;opacity:.6;text-transform:uppercase;letter-spacing:.05em}
-  #legend .row{display:flex;align-items:center;gap:7px}
-  #legend .dot{width:11px;height:11px;border-radius:50%}
+  .panel{position:absolute;background:rgba(18,18,24,.88);color:#eee;z-index:1;
+    font:13px system-ui,-apple-system,sans-serif;padding:9px 12px;border-radius:9px}
+  #ctrl{top:10px;left:10px;display:flex;gap:12px;align-items:center}
+  #ctrl input[type=text]{background:#0004;border:1px solid #fff3;color:#fff;border-radius:6px;
+    padding:5px 9px;font:13px system-ui;width:200px;outline:none}
+  #ctrl label{display:flex;gap:5px;align-items:center;cursor:pointer;user-select:none;opacity:.9}
+  #hud{top:10px;right:52px;opacity:.85}
+  #legend{bottom:22px;left:10px;line-height:1.9;min-width:152px}
+  #legend b{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.04em}
+  #legend .row{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+  #legend .row.off{opacity:.38}
+  #legend .dot{width:11px;height:11px;border-radius:50%;flex:none}
+  #legend .ct{opacity:.55;margin-left:auto;padding-left:12px}
   .maplibregl-popup-content{font:13px system-ui;padding:8px 12px;color:#111}
 </style></head><body>
 <div id="map"></div>
-<div id="hud">\U0001f6f0️ space-telemetry · <b id="count">…</b> satellites · <span id="ago"></span></div>
-<div id="legend"></div>
+<div id="ctrl" class="panel">
+  <input id="search" type="text" placeholder="\U0001f50d search satellite…" autocomplete="off">
+  <label><input type="checkbox" id="lbl" checked> labels</label>
+</div>
+<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span></div>
+<div id="legend" class="panel"></div>
 <script>
 const GROUPS=[['iss','#e02b2b'],['css','#ff8f1f'],['weather','#3b82f6'],['noaa','#22c55e'],['goes','#a855f7'],['stations','#9aa0aa']];
 const colorExpr=['match',['get','group']]; for(const [g,c] of GROUPS) colorExpr.push(g,c); colorExpr.push('#888');
+const hidden=new Set(); let lastSats=[]; const $=id=>document.getElementById(id);
 const map=new maplibregl.Map({container:'map',hash:true,
   style:{version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
     tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]},
   center:[12,25],zoom:1.4,maxZoom:8,renderWorldCopies:true});
 map.addControl(new maplibregl.NavigationControl(),'top-right');
 function tracksFC(sats){const f=[];for(const s of sats){if(!s.track||s.track.length<2)continue;let seg=[],prev=null;
-  for(const [lat,lon] of s.track){if(prev!==null&&Math.abs(lon-prev)>180){if(seg.length>1)f.push({type:'Feature',properties:{group:s.group},geometry:{type:'LineString',coordinates:seg}});seg=[];}
+  for(const [lat,lon] of s.track){if(prev!==null&&Math.abs(lon-prev)>180){if(seg.length>1)f.push({type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:seg}});seg=[];}
     seg.push([lon,lat]);prev=lon;}
-  if(seg.length>1)f.push({type:'Feature',properties:{group:s.group},geometry:{type:'LineString',coordinates:seg}});}
+  if(seg.length>1)f.push({type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:seg}});}
   return {type:'FeatureCollection',features:f};}
 function pointsFC(sats){return {type:'FeatureCollection',features:sats.map(s=>({type:'Feature',
   properties:{name:s.name,group:s.group,alt:s.alt_km,el:s.elevation,sunlit:s.sunlit?1:0},
   geometry:{type:'Point',coordinates:[s.lon,s.lat]}}))};}
+function applyFilters(){const groups=GROUPS.map(([g])=>g).filter(g=>!hidden.has(g));
+  const q=$('search').value.trim().toLowerCase();
+  const gf=['in',['get','group'],['literal',groups]];
+  const flt=q?['all',gf,['in',q,['downcase',['get','name']]]]:gf;
+  for(const l of ['sat-dots','sat-labels','tracks']) if(map.getLayer(l)) map.setFilter(l,flt);}
 let last=0;
-async function refresh(){try{const d=await (await fetch('/api/satellites.json')).json();const sats=d.satellites||[];
-  map.getSource('tracks').setData(tracksFC(sats));map.getSource('sats').setData(pointsFC(sats));
-  document.getElementById('count').textContent=sats.length;last=Date.now();
-  const cnt={};for(const s of sats)cnt[s.group]=(cnt[s.group]||0)+1;
-  document.getElementById('legend').innerHTML='<b>groups</b>'+GROUPS.filter(([g])=>cnt[g]).map(([g,c])=>
-    '<div class="row"><span class="dot" style="background:'+c+'"></span>'+g+' <span style="opacity:.55">'+cnt[g]+'</span></div>').join('');
+async function refresh(){try{const d=await (await fetch('/api/satellites.json')).json();lastSats=d.satellites||[];
+  map.getSource('tracks').setData(tracksFC(lastSats));map.getSource('sats').setData(pointsFC(lastSats));
+  $('count').textContent=lastSats.length;last=Date.now();
+  const cnt={};for(const s of lastSats)cnt[s.group]=(cnt[s.group]||0)+1;
+  $('legend').innerHTML='<b>groups · click to hide</b>'+GROUPS.filter(([g])=>cnt[g]).map(([g,c])=>
+    '<div class="row'+(hidden.has(g)?' off':'')+'" data-g="'+g+'"><span class="dot" style="background:'+c+'"></span>'+g+'<span class="ct">'+cnt[g]+'</span></div>').join('');
+  $('legend').querySelectorAll('.row').forEach(r=>r.onclick=()=>{const g=r.dataset.g;hidden.has(g)?hidden.delete(g):hidden.add(g);r.classList.toggle('off');applyFilters();});
+  applyFilters();
 }catch(e){console.error(e);}}
-setInterval(()=>{if(last){document.getElementById('ago').textContent=Math.round((Date.now()-last)/1000)+'s ago';}},1000);
+setInterval(()=>{if(last)$('ago').textContent=Math.round((Date.now()-last)/1000)+'s ago';},1000);
+$('search').addEventListener('input',()=>{applyFilters();const q=$('search').value.trim().toLowerCase();
+  if(q){const m=lastSats.find(s=>s.name.toLowerCase().includes(q));if(m)map.flyTo({center:[m.lon,m.lat],zoom:Math.max(map.getZoom(),3)});}});
+$('lbl').addEventListener('change',()=>map.setLayoutProperty('sat-labels','visibility',$('lbl').checked?'visible':'none'));
 map.on('load',()=>{
   map.addSource('tracks',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addSource('sats',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
