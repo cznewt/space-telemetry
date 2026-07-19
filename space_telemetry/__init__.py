@@ -5,4 +5,4 @@ The exporter is organised as a set of sibling *collector* modules under
 satellites, and space_weather.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

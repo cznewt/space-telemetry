@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "space-telemetry"
-version = "0.1.0"
+version = "0.2.0"
 description = "Prometheus/OTel exporter for space telemetry: solar-system bodies (ephemeris) and satellites (TLE/OMM)."
 readme = "README.md"
 requires-python = ">=3.10"
