@@ -151,7 +151,7 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   <label><input type="checkbox" id="foot" checked> footprints</label>
   <label><input type="checkbox" id="globe"> globe</label>
 </div>
-<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span></div>
+<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span> · <a href="/table" style="color:#8ab4ff;text-decoration:none">▦ table</a></div>
 <div id="legend" class="panel"></div>
 <div id="passes" class="panel"></div>
 <div id="altctrl" class="panel">
@@ -270,8 +270,71 @@ map.on('load',()=>{
 </script></body></html>"""
 
 
+_TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>space-telemetry · tables</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0d0d12;color:#e8e8ee;font:14px system-ui,-apple-system,sans-serif}
+  header{position:sticky;top:0;background:#14141c;padding:12px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #ffffff14;z-index:2}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  header nav{display:flex;gap:14px;margin-left:auto}
+  header a{color:#8ab4ff;text-decoration:none}
+  header a:hover{text-decoration:underline}
+  header a.on{color:#e8e8ee;font-weight:600}
+  .wrap{padding:6px 20px 40px;max-width:1180px;margin:0 auto}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;opacity:.55;margin:26px 0 8px;display:flex;gap:10px;align-items:baseline}
+  h2 .ago{margin-left:auto;font-weight:400;opacity:.6;text-transform:none;letter-spacing:0}
+  .ov{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:5px 10px;border-bottom:1px solid #ffffff0e;white-space:nowrap}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;opacity:.5;font-weight:600}
+  td.num,th.num{text-align:right}
+  tr:hover td{background:#ffffff08}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .up{color:#4ade80}.down{opacity:.45}
+</style></head><body>
+<header><h1>space-telemetry</h1>
+  <nav><a href="/map">map</a><a href="/table" class="on">tables</a><a href="/status">status</a><a href="/metrics">metrics</a></nav>
+</header>
+<div class="wrap">
+  <h2>Solar-system bodies <span id="bc"></span></h2>
+  <div class="ov"><table><thead><tr><th>Body</th><th class="num">Alt</th><th class="num">Az</th><th class="num">Distance</th><th>Rise / set</th><th>Moon</th></tr></thead><tbody id="btb"></tbody></table></div>
+  <h2>Satellites over observer <span id="sc"></span><span class="ago" id="ago"></span></h2>
+  <div class="ov"><table><thead><tr><th>Satellite</th><th>Group</th><th class="num">Alt km</th><th class="num">El</th><th class="num">Footprint</th><th>Sub-point</th><th>Next pass</th><th>Sun</th></tr></thead><tbody id="stb"></tbody></table></div>
+</div>
+<script>
+const GC={iss:'#e02b2b',css:'#ff8f1f',weather:'#3b82f6',noaa:'#22c55e',goes:'#a855f7',stations:'#9aa0aa'};
+const $=id=>document.getElementById(id);
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const hm=ts=>{if(!ts)return'—';return new Date(ts*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});};
+const inMin=ts=>{if(!ts)return'';const m=Math.round((ts-Date.now()/1000)/60);return m<0?'':(m<90?'in '+m+'m':'in '+(m/60).toFixed(1)+'h');};
+const dist=km=>km>=1e6?(km/149597870.7).toFixed(3)+' AU':km.toLocaleString('en-US')+' km';
+async function bodies(){try{const b=(await(await fetch('/api/bodies.json')).json()).bodies||[];
+  $('bc').textContent=b.length?'· '+b.length:'';
+  $('btb').innerHTML=b.map(x=>{const u=x.up?'up':'down';const moon=x.illum!=null?('◐ '+x.illum+'% · phase '+x.phase+'°'):'';
+    return '<tr><td class="'+u+'">'+cap(x.name)+'</td><td class="num '+u+'">'+x.altitude.toFixed(1)+'°</td>'
+      +'<td class="num">'+x.azimuth.toFixed(0)+'°</td><td class="num">'+dist(x.distance_km)+'</td>'
+      +'<td>'+(x.up?'sets '+hm(x['set']):'rises '+hm(x.rise))+'</td><td>'+moon+'</td></tr>';}).join('')
+      ||'<tr><td colspan=6 style="opacity:.5">none enabled</td></tr>';
+}catch(e){console.error(e);}}
+async function sats(){try{const[sd,pd]=await Promise.all([fetch('/api/satellites.json').then(r=>r.json()),fetch('/api/passes.json').then(r=>r.json())]);
+  const s=sd.satellites||[];const pm={};(pd.passes||[]).forEach(p=>pm[p.norad]=p);
+  s.sort((a,b)=>b.elevation-a.elevation);
+  $('sc').textContent='· '+s.length;$('ago').textContent='updated '+new Date().toLocaleTimeString();
+  $('stb').innerHTML=s.map(x=>{const p=pm[x.norad];const up=x.elevation>=0;
+    const np=p?(p.up_now?'<span class="up">now</span>':(inMin(p.aos)+(p.max_elev!=null?' · '+Math.round(p.max_elev)+'°':''))):'—';
+    return '<tr><td>'+x.name+'</td><td><span class="dot" style="background:'+(GC[x.group]||'#888')+'"></span>'+x.group+'</td>'
+      +'<td class="num">'+Math.round(x.alt_km)+'</td><td class="num '+(up?'up':'down')+'">'+x.elevation.toFixed(1)+'°</td>'
+      +'<td class="num">'+x.footprint_km+'</td><td>'+x.lat.toFixed(1)+', '+x.lon.toFixed(1)+'</td>'
+      +'<td>'+np+'</td><td>'+(x.sunlit?'☀':'')+'</td></tr>';}).join('');
+}catch(e){console.error(e);}}
+bodies();sats();setInterval(sats,15000);setInterval(bodies,30000);
+</script></body></html>"""
+
+
 def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None,
-                passes_fn=None) -> ThreadingHTTPServer:
+                passes_fn=None, bodies_fn=None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "space-telemetry"
@@ -306,6 +369,8 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
                     self._send(200, _render_html(info).encode(), "text/html; charset=utf-8")
             elif path == "/map":
                 self._send(200, _MAP_HTML.encode(), "text/html; charset=utf-8")
+            elif path == "/table":
+                self._send(200, _TABLE_HTML.encode(), "text/html; charset=utf-8")
             elif path == "/api/satellites.json":
                 off = 0.0
                 if query:
@@ -320,6 +385,9 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             elif path == "/api/passes.json":
                 data = passes_fn() if passes_fn else {"passes": []}
+                self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
+            elif path == "/api/bodies.json":
+                data = bodies_fn() if bodies_fn else {"bodies": []}
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             else:
                 self._send(404, b"not found\n", "text/plain; charset=utf-8")
