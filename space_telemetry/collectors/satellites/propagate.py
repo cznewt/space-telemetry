@@ -179,17 +179,22 @@ class SatelliteProvider:
         return [(sat.norad_id, sat.name, group_label(sat))
                 for sat in self._tracked(catalog)]
 
-    def ground_tracks(self, span_min=48.0, step_min=3.0):
-        """Fine sub-satellite ground track over ±span_min per tracked sat, for the /map
-        view. Returns {norad: [[lat, lon], ...]} sampled every step_min minutes."""
+    def ground_tracks(self, steps=60):
+        """One full orbit of sub-satellite ground track per tracked sat, for the /map
+        view. The span is the satellite's own orbital period (2π / mean motion), centred
+        on now, sampled in `steps` points. {norad: [[lat, lon], ...]}."""
         catalog = self.holder.get()
         now = self.ts.now()
-        steps = int(span_min / step_min)
         out: dict[int, list] = {}
         for sat in self._tracked(catalog):
+            try:
+                period_min = 2.0 * np.pi / sat.earthsat.model.no_kozai  # no_kozai: rad/min
+            except Exception:
+                period_min = 95.0
+            step = period_min / steps
             pts = []
-            for i in range(-steps, steps + 1):
-                t = self.ts.tt_jd(now.tt + (i * step_min) / 1440.0)
+            for i in range(-steps // 2, steps // 2 + 1):
+                t = self.ts.tt_jd(now.tt + (i * step) / 1440.0)
                 try:
                     lat, lon = subpoint_at(sat.earthsat, t)
                 except Exception:
