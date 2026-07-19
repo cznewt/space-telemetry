@@ -155,14 +155,15 @@ const map=new maplibregl.Map({container:'map',hash:true,
     tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]},
   center:[12,25],zoom:1.4,maxZoom:8,renderWorldCopies:true});
 map.addControl(new maplibregl.NavigationControl(),'top-right');
-function tracksFC(sats){const f=[];for(const s of sats){if(!s.track||s.track.length<2)continue;
-  let seg=[[s.track[0][1],s.track[0][0]]];
-  for(let i=1;i<s.track.length;i++){const lat=s.track[i][0],lon=s.track[i][1],plat=s.track[i-1][0],plon=s.track[i-1][1];
+function tracksFC(sats){const f=[];for(const s of sats){const tr=s.track;if(!tr||tr.length<2)continue;
+  const N=tr.length-1;let seg=[[tr[0][1],tr[0][0]]];let segStart=0;
+  const push=st=>f.push({type:'Feature',properties:{group:s.group,name:s.name,t:st/N},geometry:{type:'LineString',coordinates:seg}});
+  for(let i=1;i<tr.length;i++){const lat=tr[i][0],lon=tr[i][1],plat=tr[i-1][0],plon=tr[i-1][1];
     if(Math.abs(lon-plon)>180){const east=lon<plon;const dl=east?(lon+360-plon):(lon-360-plon);
       const ef=east?180:-180,et=east?-180:180;const il=plat+(lat-plat)*((ef-plon)/dl);
-      seg.push([ef,il]);f.push({type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:seg}});seg=[[et,il]];}
+      seg.push([ef,il]);push(segStart);seg=[[et,il]];segStart=i;}
     seg.push([lon,lat]);}
-  if(seg.length>1)f.push({type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:seg}});}
+  if(seg.length>1)push(segStart);}
   return {type:'FeatureCollection',features:f};}
 function obsFC(obs){return {type:'FeatureCollection',features:(obs||[]).map(o=>({type:'Feature',properties:{name:o.name},geometry:{type:'Point',coordinates:[o.lon,o.lat]}}))};}
 function pointsFC(sats){return {type:'FeatureCollection',features:sats.map(s=>({type:'Feature',
@@ -219,11 +220,11 @@ $('globe').addEventListener('change',()=>map.setProjection({type:$('globe').chec
 $('foot').addEventListener('change',()=>{const v=$('foot').checked?'visible':'none';['footprint-fill','footprint-line'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility',v));});
 map.on('load',()=>{
   map.addSource('footprints',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-  map.addLayer({id:'footprint-fill',type:'fill',source:'footprints',paint:{'fill-color':colorExpr,'fill-opacity':['case',['==',['get','up'],1],0.10,0]}});
+  map.addLayer({id:'footprint-fill',type:'fill',source:'footprints',paint:{'fill-color':colorExpr,'fill-opacity':['case',['==',['get','up'],1],0.5,0]}});
   map.addLayer({id:'footprint-line',type:'line',source:'footprints',paint:{'line-color':colorExpr,'line-width':1,'line-opacity':['case',['==',['get','up'],1],0.75,0.18]}});
   map.addSource('tracks',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addSource('sats',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
-  map.addLayer({id:'tracks',type:'line',source:'tracks',paint:{'line-color':colorExpr,'line-width':1.3,'line-opacity':.5}});
+  map.addLayer({id:'tracks',type:'line',source:'tracks',paint:{'line-color':['interpolate',['linear'],['get','t'],0,'#3b82f6',0.5,'#c026d3',1,'#ef4444'],'line-width':1.3,'line-opacity':.6}});
   map.addLayer({id:'sat-dots',type:'circle',source:'sats',paint:{'circle-radius':6,'circle-color':colorExpr,'circle-stroke-width':2,'circle-stroke-color':'#fff'}});
   map.addLayer({id:'sat-labels',type:'symbol',source:'sats',layout:{'text-field':['get','name'],'text-font':['Open Sans Regular'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':true},paint:{'text-color':'#fff','text-halo-color':'#000','text-halo-width':1.3}});
   map.addSource('obs',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
