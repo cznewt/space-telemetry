@@ -80,6 +80,16 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
 # Multi-module space stations are catalogued as several NORAD objects sharing one
 # ground point; on the map they collapse to a single marker labelled by station.
 _STATIONS = {"iss": "ISS", "css": "CSS"}
+# Craft docked to (or modules of) a station ride along at the same ground point but are
+# catalogued in the generic "stations" group; hide any sitting within this many degrees
+# of a station marker so they don't pile up on top of it.
+_DOCKED_EPS_DEG = 0.5
+
+
+def _lon_delta(a: float, b: float) -> float:
+    """Smallest absolute longitude difference in degrees, across the antimeridian."""
+    d = abs(a - b) % 360.0
+    return min(d, 360.0 - d)
 
 
 def _satellites_fn(settings, sat_providers, observers):
@@ -93,16 +103,26 @@ def _satellites_fn(settings, sat_providers, observers):
         p = sat_providers[0]
         groups = {norad: g for norad, name, g in p.infos()}
         tracks = p.ground_tracks()
+        states = [(s, groups.get(s.norad_id, "other")) for s in p.states()]
+
+        # ground points of the station markers (ISS/CSS), to hide anything docked there
+        anchors = [(s.subpoint_lat_deg, s.subpoint_lon_deg) for s, g in states if g in _STATIONS]
+
+        def at_station(lat: float, lon: float) -> bool:
+            return any(abs(lat - alat) < _DOCKED_EPS_DEG and _lon_delta(lon, alon) < _DOCKED_EPS_DEG
+                       for alat, alon in anchors)
+
         sats = []
         seen_station: set[str] = set()
-        for s in p.states():
-            g = groups.get(s.norad_id, "other")
+        for s, g in states:
             name = s.name
             if g in _STATIONS:  # keep one marker per station, not one per module
                 if g in seen_station:
                     continue
                 seen_station.add(g)
                 name = _STATIONS[g]
+            elif g == "stations" and at_station(s.subpoint_lat_deg, s.subpoint_lon_deg):
+                continue  # docked craft / module co-located with ISS or CSS — hide it
             sats.append({
                 "norad": s.norad_id, "name": name,
                 "group": g,
