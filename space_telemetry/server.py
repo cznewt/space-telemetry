@@ -11,6 +11,7 @@ from __future__ import annotations
 import gzip
 import html
 import json
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, generate_latest
@@ -133,6 +134,14 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   #passes .pw{opacity:.85;font-variant-numeric:tabular-nums}
   #passes .pe{opacity:.55;width:32px;text-align:right;font-variant-numeric:tabular-nums}
   #passes .now{color:#33d17a;font-weight:600}
+  #altctrl{top:50%;left:10px;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:9px;padding:12px 9px}
+  #altctrl input[type=range]{writing-mode:vertical-lr;direction:rtl;width:9px;height:180px;accent-color:#3b82f6;cursor:pointer}
+  #altctrl .lbl{font-size:11px;opacity:.7;white-space:nowrap;letter-spacing:.02em}
+  #timectrl{bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:11px;padding:8px 14px}
+  #timectrl input[type=range]{width:min(52vw,540px);accent-color:#c026d3;cursor:pointer}
+  #timectrl .tl{font-variant-numeric:tabular-nums;min-width:56px;text-align:center;font-weight:600}
+  #timectrl button{background:#fff2;border:1px solid #fff3;color:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;font:12px system-ui}
+  #timectrl button:hover{background:#fff3}
   .maplibregl-popup-content{font:13px system-ui;padding:8px 12px;color:#111}
 </style></head><body>
 <div id="map"></div>
@@ -145,10 +154,21 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span></div>
 <div id="legend" class="panel"></div>
 <div id="passes" class="panel"></div>
+<div id="altctrl" class="panel">
+  <span class="lbl" id="altlbl">all</span>
+  <input id="alt" type="range" min="0" max="1000" value="1000">
+  <span class="lbl">alt max</span>
+</div>
+<div id="timectrl" class="panel">
+  <span class="tl" id="timelbl">now</span>
+  <input id="time" type="range" min="-1440" max="1440" value="0" step="5">
+  <button id="timenow">now</button>
+</div>
 <script>
 const GROUPS=[['iss','#e02b2b'],['css','#ff8f1f'],['weather','#3b82f6'],['noaa','#22c55e'],['goes','#a855f7'],['stations','#9aa0aa']];
 const colorExpr=['match',['get','group']]; for(const [g,c] of GROUPS) colorExpr.push(g,c); colorExpr.push('#888');
-const hidden=new Set(); let lastSats=[]; const $=id=>document.getElementById(id);
+const hidden=new Set(); let lastSats=[],maxAlt=40000,timeOffset=0; const $=id=>document.getElementById(id);
+const fmtOffset=m=>{if(!m)return'now';const s=m<0?'−':'+';m=Math.abs(m);if(m>=1440)return s+(m/1440).toFixed(m%1440?1:0)+'d';const h=(m/60)|0,mm=m%60;return s+(h?h+'h ':'')+((mm||!h)?mm+'m':'');};
 const map=new maplibregl.Map({container:'map',hash:true,
   style:{version:8,glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
@@ -157,7 +177,7 @@ const map=new maplibregl.Map({container:'map',hash:true,
 map.addControl(new maplibregl.NavigationControl(),'top-right');
 function tracksFC(sats){const f=[];for(const s of sats){const tr=s.track;if(!tr||tr.length<2)continue;
   const N=tr.length-1;let seg=[[tr[0][1],tr[0][0]]];let segStart=0;
-  const push=st=>f.push({type:'Feature',properties:{group:s.group,name:s.name,t:st/N},geometry:{type:'LineString',coordinates:seg}});
+  const push=st=>f.push({type:'Feature',properties:{group:s.group,name:s.name,alt:s.alt,t:st/N},geometry:{type:'LineString',coordinates:seg}});
   for(let i=1;i<tr.length;i++){const lat=tr[i][0],lon=tr[i][1],plat=tr[i-1][0],plon=tr[i-1][1];
     if(Math.abs(lon-plon)>180){const east=lon<plon;const dl=east?(lon+360-plon):(lon-360-plon);
       const ef=east?180:-180,et=east?-180:180;const il=plat+(lat-plat)*((ef-plon)/dl);
@@ -176,16 +196,18 @@ function circlePoly(lat,lon,km,n){n=n||48;const R=6371,d=km/R,la=lat*Math.PI/180
     c.push([o2*180/Math.PI,l2*180/Math.PI]);}
   return c;}
 function footprintsFC(sats){const f=[];for(const s of sats){if(s.footprint_km==null)continue;
-  f.push({type:'Feature',properties:{group:s.group,name:s.name,up:(s.elevation>=0?1:0)},
+  f.push({type:'Feature',properties:{group:s.group,name:s.name,alt:s.alt_km,up:(s.elevation>=0?1:0)},
     geometry:{type:'Polygon',coordinates:[circlePoly(s.lat,s.lon,s.footprint_km)]}});}
   return {type:'FeatureCollection',features:f};}
 function applyFilters(){const groups=GROUPS.map(([g])=>g).filter(g=>!hidden.has(g));
   const q=$('search').value.trim().toLowerCase();
-  const gf=['in',['get','group'],['literal',groups]];
-  const flt=q?['all',gf,['in',q,['downcase',['get','name']]]]:gf;
+  const conds=[['in',['get','group'],['literal',groups]]];
+  if(q)conds.push(['in',q,['downcase',['get','name']]]);
+  if(maxAlt<40000)conds.push(['<=',['coalesce',['get','alt'],0],maxAlt]);
+  const flt=conds.length>1?['all'].concat(conds):conds[0];
   for(const l of ['sat-dots','sat-labels','tracks','footprint-fill','footprint-line']) if(map.getLayer(l)) map.setFilter(l,flt);}
 let last=0;
-async function refresh(){try{const d=await (await fetch('/api/satellites.json')).json();lastSats=d.satellites||[];
+async function refresh(){try{const u='/api/satellites.json'+(timeOffset?('?t='+timeOffset):'');const d=await (await fetch(u)).json();lastSats=d.satellites||[];
   map.getSource('sats').setData(pointsFC(lastSats));
   map.getSource('footprints').setData(footprintsFC(lastSats));
   map.getSource('obs').setData(obsFC(d.observers));
@@ -218,6 +240,13 @@ $('search').addEventListener('input',()=>{applyFilters();const q=$('search').val
 $('lbl').addEventListener('change',()=>map.setLayoutProperty('sat-labels','visibility',$('lbl').checked?'visible':'none'));
 $('globe').addEventListener('change',()=>map.setProjection({type:$('globe').checked?'globe':'mercator'}));
 $('foot').addEventListener('change',()=>{const v=$('foot').checked?'visible':'none';['footprint-fill','footprint-line'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility',v));});
+$('alt').addEventListener('input',()=>{const v=+$('alt').value;maxAlt=v>=1000?40000:Math.round(300*Math.pow(40000/300,v/1000));
+  $('altlbl').textContent=v>=1000?'all':maxAlt+'km';applyFilters();});
+let tThr=0;
+$('time').addEventListener('input',()=>{timeOffset=+$('time').value;$('timelbl').textContent=fmtOffset(timeOffset);
+  const n=Date.now();if(n-tThr>250){tThr=n;refresh();}});
+$('time').addEventListener('change',()=>{timeOffset=+$('time').value;refresh();});
+$('timenow').addEventListener('click',()=>{$('time').value=0;timeOffset=0;$('timelbl').textContent='now';refresh();});
 map.on('load',()=>{
   map.addSource('footprints',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'footprint-fill',type:'fill',source:'footprints',paint:{'fill-color':colorExpr,'fill-opacity':['case',['==',['get','up'],1],0.5,0]}});
@@ -278,7 +307,13 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
             elif path == "/map":
                 self._send(200, _MAP_HTML.encode(), "text/html; charset=utf-8")
             elif path == "/api/satellites.json":
-                data = satellites_fn() if satellites_fn else {"satellites": []}
+                off = 0.0
+                if query:
+                    try:  # ?t=<minutes from now>, ±1 day, for the map time scrubber
+                        off = max(-1440.0, min(1440.0, float(urllib.parse.parse_qs(query).get("t", ["0"])[0])))
+                    except ValueError:
+                        off = 0.0
+                data = satellites_fn(off) if satellites_fn else {"satellites": []}
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             elif path == "/api/tracks.json":
                 data = tracks_fn() if tracks_fn else {"tracks": []}
