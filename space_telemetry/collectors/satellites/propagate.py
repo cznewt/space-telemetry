@@ -7,6 +7,7 @@ is the radial component of the topocentric velocity.
 
 from __future__ import annotations
 
+import math
 from time import monotonic
 
 import numpy as np
@@ -16,6 +17,18 @@ from skyfield.framelib import itrs
 from .model import CatalogHolder, SatelliteState
 
 _C = 299_792_458.0  # speed of light, m/s
+_R_EARTH_KM = 6371.0  # mean Earth radius
+
+
+def footprint_radius_km(altitude_m: float, mask_deg: float = 0.0) -> float:
+    """Ground radius (km) of a satellite's reception footprint: the great-circle distance
+    from the sub-satellite point out to where the satellite sits at elevation ``mask_deg``.
+    Inside this circle the satellite is above the mask, so its signal can be received. It
+    grows with altitude; at the horizon (mask 0) it is R·arccos(R/(R+h))."""
+    h = max(altitude_m, 0.0) / 1000.0
+    eps = math.radians(mask_deg)
+    lam = math.acos((_R_EARTH_KM / (_R_EARTH_KM + h)) * math.cos(eps)) - eps
+    return _R_EARTH_KM * max(lam, 0.0)
 
 
 def subpoint_at(earthsat, t):
@@ -222,6 +235,7 @@ class SatelliteProvider:
                 "lat": geo["subpoint_lat_deg"], "lon": geo["subpoint_lon_deg"],
                 "alt_m": geo["altitude_m"], "elevation": geo["elevation_deg"],
                 "sunlit": geo["sunlit"],
+                "footprint_km": footprint_radius_km(geo["altitude_m"], self.settings.min_elevation_deg),
             })
         return out
 

@@ -20,7 +20,7 @@ from .collectors.celestial_bodies.collector import StarCollector
 from .collectors.celestial_bodies.sampler import StarSampler
 from .collectors.satellites.collector import SatelliteCollector
 from .collectors.satellites.model import CatalogHolder
-from .collectors.satellites.propagate import SatelliteProvider
+from .collectors.satellites.propagate import SatelliteProvider, footprint_radius_km
 from .collectors.satellites.updater import SatelliteUpdater
 from .collectors.space_weather.collector import SpaceWeatherCollector
 from .collectors.space_weather.updater import SpaceWeatherUpdater
@@ -72,7 +72,7 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
                 "space_weather": space_weather,
             },
             "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map",
-                          "/api/satellites.json", "/api/tracks.json"],
+                          "/api/satellites.json", "/api/tracks.json", "/api/passes.json"],
         }
 
     return info
@@ -134,6 +134,7 @@ def _positions_fn(settings, sat_providers, observers):
             "alt_km": round(r["alt_m"] / 1000.0, 1),
             "elevation": round(r["elevation"], 1),
             "sunlit": r["sunlit"],
+            "footprint_km": round(r["footprint_km"]),
         } for r in _visible_map_sats(sat_providers[0])]
         return {"satellites": sats, "observers": obs}
     return data
@@ -151,6 +152,34 @@ def _tracks_fn(settings, sat_providers):
             {"name": r["name"], "group": r["group"], "track": tracks.get(r["norad"], [])}
             for r in _visible_map_sats(p)
         ]}
+    return data
+
+
+def _passes_fn(settings, sat_providers):
+    """Upcoming passes over the observer, for /api/passes.json and the /map passes panel:
+    for each visible satellite that rises within the lookahead window, its next AOS/LOS,
+    peak elevation, duration and reception-footprint radius. Sorted soonest-first."""
+    def data() -> dict:
+        if not (settings.sat_enabled and sat_providers):
+            return {"passes": []}
+        p = sat_providers[0]
+        mask = settings.min_elevation_deg
+        names = {r["norad"]: r["name"] for r in _visible_map_sats(p)}  # collapsed/filtered set
+        passes = []
+        for s in p.states():
+            if s.norad_id not in names or s.next_aos_ts is None:
+                continue
+            dur = round(s.next_los_ts - s.next_aos_ts) if (s.next_los_ts and s.next_aos_ts) else None
+            passes.append({
+                "norad": s.norad_id, "name": names[s.norad_id], "group": s.group,
+                "aos": s.next_aos_ts, "los": s.next_los_ts,
+                "max_elev": round(s.next_max_elev_deg, 1) if s.next_max_elev_deg is not None else None,
+                "duration_s": dur,
+                "footprint_km": round(footprint_radius_km(s.altitude_m, mask)),
+                "up_now": bool(s.above_horizon),
+            })
+        passes.sort(key=lambda x: x["aos"])
+        return {"passes": passes}
     return data
 
 
@@ -196,7 +225,8 @@ def run(settings: "Settings | None" = None) -> None:
     server = make_server(settings.host, settings.port,
                          _info_fn(settings, observers, sat_providers, sat_updater, sw_updater),
                          _positions_fn(settings, sat_providers, observers),
-                         _tracks_fn(settings, sat_providers))
+                         _tracks_fn(settings, sat_providers),
+                         _passes_fn(settings, sat_providers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "

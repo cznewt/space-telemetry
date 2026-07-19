@@ -124,16 +124,27 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   #legend .row.off{opacity:.38}
   #legend .dot{width:11px;height:11px;border-radius:50%;flex:none}
   #legend .ct{opacity:.55;margin-left:auto;padding-left:12px}
+  #passes{bottom:22px;right:10px;max-height:48vh;overflow:auto;min-width:214px;max-width:264px;line-height:1.5}
+  #passes b{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px}
+  #passes .prow{display:flex;align-items:center;gap:7px;padding:1px 0;cursor:pointer}
+  #passes .prow:hover{opacity:.75}
+  #passes .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  #passes .pn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #passes .pw{opacity:.85;font-variant-numeric:tabular-nums}
+  #passes .pe{opacity:.55;width:32px;text-align:right;font-variant-numeric:tabular-nums}
+  #passes .now{color:#33d17a;font-weight:600}
   .maplibregl-popup-content{font:13px system-ui;padding:8px 12px;color:#111}
 </style></head><body>
 <div id="map"></div>
 <div id="ctrl" class="panel">
   <input id="search" type="text" placeholder="\U0001f50d search satellite…" autocomplete="off">
   <label><input type="checkbox" id="lbl" checked> labels</label>
+  <label><input type="checkbox" id="foot" checked> footprints</label>
   <label><input type="checkbox" id="globe"> globe</label>
 </div>
 <div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span></div>
 <div id="legend" class="panel"></div>
+<div id="passes" class="panel"></div>
 <script>
 const GROUPS=[['iss','#e02b2b'],['css','#ff8f1f'],['weather','#3b82f6'],['noaa','#22c55e'],['goes','#a855f7'],['stations','#9aa0aa']];
 const colorExpr=['match',['get','group']]; for(const [g,c] of GROUPS) colorExpr.push(g,c); colorExpr.push('#888');
@@ -155,16 +166,27 @@ function tracksFC(sats){const f=[];for(const s of sats){if(!s.track||s.track.len
   return {type:'FeatureCollection',features:f};}
 function obsFC(obs){return {type:'FeatureCollection',features:(obs||[]).map(o=>({type:'Feature',properties:{name:o.name},geometry:{type:'Point',coordinates:[o.lon,o.lat]}}))};}
 function pointsFC(sats){return {type:'FeatureCollection',features:sats.map(s=>({type:'Feature',
-  properties:{name:s.name,group:s.group,alt:s.alt_km,el:s.elevation,sunlit:s.sunlit?1:0},
+  properties:{name:s.name,group:s.group,alt:s.alt_km,el:s.elevation,sunlit:s.sunlit?1:0,fp:s.footprint_km,up:(s.elevation>=0?1:0)},
   geometry:{type:'Point',coordinates:[s.lon,s.lat]}}))};}
+function circlePoly(lat,lon,km,n){n=n||48;const R=6371,d=km/R,la=lat*Math.PI/180,lo=lon*Math.PI/180,c=[];
+  for(let i=0;i<=n;i++){const b=2*Math.PI*i/n;
+    const l2=Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(b));
+    const o2=lo+Math.atan2(Math.sin(b)*Math.sin(d)*Math.cos(la),Math.cos(d)-Math.sin(la)*Math.sin(l2));
+    c.push([o2*180/Math.PI,l2*180/Math.PI]);}
+  return c;}
+function footprintsFC(sats){const f=[];for(const s of sats){if(s.footprint_km==null)continue;
+  f.push({type:'Feature',properties:{group:s.group,name:s.name,up:(s.elevation>=0?1:0)},
+    geometry:{type:'Polygon',coordinates:[circlePoly(s.lat,s.lon,s.footprint_km)]}});}
+  return {type:'FeatureCollection',features:f};}
 function applyFilters(){const groups=GROUPS.map(([g])=>g).filter(g=>!hidden.has(g));
   const q=$('search').value.trim().toLowerCase();
   const gf=['in',['get','group'],['literal',groups]];
   const flt=q?['all',gf,['in',q,['downcase',['get','name']]]]:gf;
-  for(const l of ['sat-dots','sat-labels','tracks']) if(map.getLayer(l)) map.setFilter(l,flt);}
+  for(const l of ['sat-dots','sat-labels','tracks','footprint-fill','footprint-line']) if(map.getLayer(l)) map.setFilter(l,flt);}
 let last=0;
 async function refresh(){try{const d=await (await fetch('/api/satellites.json')).json();lastSats=d.satellites||[];
   map.getSource('sats').setData(pointsFC(lastSats));
+  map.getSource('footprints').setData(footprintsFC(lastSats));
   map.getSource('obs').setData(obsFC(d.observers));
   $('count').textContent=lastSats.length;last=Date.now();
   const cnt={};for(const s of lastSats)cnt[s.group]=(cnt[s.group]||0)+1;
@@ -176,12 +198,29 @@ async function refresh(){try{const d=await (await fetch('/api/satellites.json'))
 async function refreshTracks(){try{const d=await(await fetch('/api/tracks.json')).json();
   map.getSource('tracks').setData(tracksFC(d.tracks||[]));applyFilters();
 }catch(e){console.error('tracks',e);}}
+async function refreshPasses(){try{const d=await(await fetch('/api/passes.json')).json();const now=Date.now()/1000;
+  const ps=d.passes||[];
+  const rows=ps.slice(0,16).map(p=>{const mins=Math.round((p.aos-now)/60);
+    const when=p.up_now?'<span class="now">● now</span>':(mins<1?'in <1m':(mins<90?'in '+mins+'m':'in '+(mins/60).toFixed(1)+'h'));
+    const col=(GROUPS.find(g=>g[0]===p.group)||[])[1]||'#888';
+    const tip='max el '+(p.max_elev!=null?Math.round(p.max_elev)+'°':'?')+(p.duration_s?' · '+Math.round(p.duration_s/60)+' min':'')+' · footprint ~'+p.footprint_km+' km';
+    return '<div class="prow" data-norad="'+p.norad+'" title="'+tip+'"><span class="dot" style="background:'+col+'"></span>'
+      +'<span class="pn">'+p.name+'</span><span class="pw">'+when+'</span>'
+      +'<span class="pe">'+(p.max_elev!=null?Math.round(p.max_elev)+'°':'')+'</span></div>';}).join('');
+  $('passes').innerHTML='<b>next passes over observer</b>'+(rows||'<span style="opacity:.5">none in next 24 h</span>');
+  $('passes').querySelectorAll('.prow').forEach(r=>r.onclick=()=>{const s=lastSats.find(x=>x.norad==r.dataset.norad);
+    if(s)map.flyTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),3)});});
+}catch(e){console.error('passes',e);}}
 setInterval(()=>{if(last)$('ago').textContent=Math.round((Date.now()-last)/1000)+'s ago';},1000);
 $('search').addEventListener('input',()=>{applyFilters();const q=$('search').value.trim().toLowerCase();
   if(q){const m=lastSats.find(s=>s.name.toLowerCase().includes(q));if(m)map.flyTo({center:[m.lon,m.lat],zoom:Math.max(map.getZoom(),3)});}});
 $('lbl').addEventListener('change',()=>map.setLayoutProperty('sat-labels','visibility',$('lbl').checked?'visible':'none'));
 $('globe').addEventListener('change',()=>map.setProjection({type:$('globe').checked?'globe':'mercator'}));
+$('foot').addEventListener('change',()=>{const v=$('foot').checked?'visible':'none';['footprint-fill','footprint-line'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility',v));});
 map.on('load',()=>{
+  map.addSource('footprints',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'footprint-fill',type:'fill',source:'footprints',paint:{'fill-color':colorExpr,'fill-opacity':['case',['==',['get','up'],1],0.10,0]}});
+  map.addLayer({id:'footprint-line',type:'line',source:'footprints',paint:{'line-color':colorExpr,'line-width':1,'line-opacity':['case',['==',['get','up'],1],0.75,0.18]}});
   map.addSource('tracks',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addSource('sats',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'tracks',type:'line',source:'tracks',paint:{'line-color':colorExpr,'line-width':1.3,'line-opacity':.5}});
@@ -191,17 +230,18 @@ map.on('load',()=>{
   map.addLayer({id:'obs-dot',type:'circle',source:'obs',paint:{'circle-radius':7,'circle-color':'#ffd400','circle-stroke-width':2,'circle-stroke-color':'#000'}});
   map.addLayer({id:'obs-label',type:'symbol',source:'obs',layout:{'text-field':['get','name'],'text-font':['Open Sans Regular'],'text-size':12,'text-offset':[0,1.3],'text-anchor':'top','text-allow-overlap':true},paint:{'text-color':'#ffd400','text-halo-color':'#000','text-halo-width':1.6}});
   map.on('click','sat-dots',e=>{const p=e.features[0].properties;new maplibregl.Popup().setLngLat(e.lngLat)
-    .setHTML('<b>'+p.name+'</b><br>group '+p.group+'<br>alt '+p.alt+' km · el '+p.el+'°'+(+p.sunlit?' · ☀ sunlit':'')).addTo(map);});
+    .setHTML('<b>'+p.name+'</b><br>group '+p.group+'<br>alt '+p.alt+' km · el '+p.el+'°'+(+p.sunlit?' · ☀ sunlit':'')+'<br>footprint ~'+Math.round(p.fp)+' km radius'+(+p.up?' · <b>over you now</b>':'')).addTo(map);});
   const hov=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:12});
   map.on('mouseenter','sat-dots',e=>{map.getCanvas().style.cursor='pointer';hov.setLngLat(e.lngLat).setHTML('<b>'+e.features[0].properties.name+'</b>').addTo(map);});
   map.on('mousemove','sat-dots',e=>{if(e.features.length)hov.setLngLat(e.lngLat).setHTML('<b>'+e.features[0].properties.name+'</b>');});
   map.on('mouseleave','sat-dots',()=>{map.getCanvas().style.cursor='';hov.remove();});
-  refresh();refreshTracks();setInterval(refresh,15000);setInterval(refreshTracks,180000);
+  refresh();refreshTracks();refreshPasses();setInterval(refresh,15000);setInterval(refreshTracks,180000);setInterval(refreshPasses,60000);
 });
 </script></body></html>"""
 
 
-def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None) -> ThreadingHTTPServer:
+def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None,
+                passes_fn=None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "space-telemetry"
@@ -241,6 +281,9 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             elif path == "/api/tracks.json":
                 data = tracks_fn() if tracks_fn else {"tracks": []}
+                self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
+            elif path == "/api/passes.json":
+                data = passes_fn() if passes_fn else {"passes": []}
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             else:
                 self._send(404, b"not found\n", "text/plain; charset=utf-8")
