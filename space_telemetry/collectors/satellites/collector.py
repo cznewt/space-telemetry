@@ -10,6 +10,8 @@ from time import perf_counter, time
 
 from prometheus_client.core import GaugeMetricFamily
 
+from .propagate import footprint_radius_km
+
 _SAT_L = ["norad", "name", "observer", "group"]
 _TX_L = ["norad", "uuid", "mode", "status"]
 _C = 299_792_458.0  # speed of light, m/s
@@ -44,6 +46,8 @@ class SatelliteCollector:
         aos = sat_gauge("satellite_next_pass_aos_timestamp_seconds", "Next pass AOS (UNIX seconds).")
         los = sat_gauge("satellite_next_pass_los_timestamp_seconds", "Next pass LOS (UNIX seconds).")
         maxel = sat_gauge("satellite_next_pass_max_elevation_degrees", "Next pass peak elevation (degrees).")
+        fp = sat_gauge("satellite_footprint_radius_meters",
+                       "Ground radius of the reception footprint at the horizon mask (metres).")
 
         # Transmitter frequencies/baud are properties of the satellite (observer-independent).
         downlink = GaugeMetricFamily("satellite_transmitter_downlink_hertz",
@@ -57,6 +61,7 @@ class SatelliteCollector:
                                     "Doppler shift on the downlink at the current range rate (Hz).",
                                     labels=["norad", "uuid", "observer"])
 
+        mask = self.providers[0].settings.min_elevation_deg if self.providers else 0.0
         seen_tx: set = set()
         for obs, states in per_observer:
             for s in states:
@@ -68,6 +73,7 @@ class SatelliteCollector:
                 sublat.add_metric(lv, s.subpoint_lat_deg)
                 sublon.add_metric(lv, s.subpoint_lon_deg)
                 salt.add_metric(lv, s.altitude_m)
+                fp.add_metric(lv, footprint_radius_km(s.altitude_m, mask) * 1000.0)
                 vel.add_metric(lv, s.velocity_m_s)
                 above.add_metric(lv, 1.0 if s.above_horizon else 0.0)
                 if s.sunlit is not None:
@@ -97,7 +103,7 @@ class SatelliteCollector:
                         baud.add_metric(txlv, tx.baud)
 
         yield from (elev, az, rng, rate, sublat, sublon, salt, vel, above, sun,
-                    epoch, age, aos, los, maxel, downlink, uplink, baud, doppler)
+                    epoch, age, aos, los, maxel, fp, downlink, uplink, baud, doppler)
 
         # Ground track: sub-point at each time offset (observer-independent, emit once).
         track_lat = GaugeMetricFamily("satellite_track_latitude_degrees",
