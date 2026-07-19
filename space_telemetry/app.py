@@ -71,10 +71,33 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
                 "satellites": satellites,
                 "space_weather": space_weather,
             },
-            "endpoints": ["/metrics", "/status", "/health", "/healthz"],
+            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/api/satellites.json"],
         }
 
     return info
+
+
+def _satellites_fn(settings, sat_providers):
+    """Live satellite positions + fine ground tracks + group, for the /map view."""
+    def data() -> dict:
+        if not (settings.sat_enabled and sat_providers):
+            return {"satellites": []}
+        p = sat_providers[0]
+        groups = {norad: g for norad, name, g in p.infos()}
+        tracks = p.ground_tracks()
+        sats = []
+        for s in p.states():
+            sats.append({
+                "norad": s.norad_id, "name": s.name,
+                "group": groups.get(s.norad_id, "other"),
+                "lat": round(s.subpoint_lat_deg, 3), "lon": round(s.subpoint_lon_deg, 3),
+                "alt_km": round(s.altitude_m / 1000.0, 1),
+                "elevation": round(s.elevation_deg, 1),
+                "sunlit": s.sunlit,
+                "track": tracks.get(s.norad_id, []),
+            })
+        return {"satellites": sats}
+    return data
 
 
 def run(settings: "Settings | None" = None) -> None:
@@ -117,7 +140,8 @@ def run(settings: "Settings | None" = None) -> None:
         attach_otel(body_samplers, settings, sat_providers)
 
     server = make_server(settings.host, settings.port,
-                         _info_fn(settings, observers, sat_providers, sat_updater, sw_updater))
+                         _info_fn(settings, observers, sat_providers, sat_updater, sw_updater),
+                         _satellites_fn(settings, sat_providers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "

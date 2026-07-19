@@ -582,7 +582,7 @@
                 "layers": [
                   {
                     "config": {
-                      "showLegend": false,
+                      "showLegend": true,
                       "style": {
                         "color": {
                           "field": "group"

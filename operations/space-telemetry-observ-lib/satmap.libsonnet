@@ -111,9 +111,7 @@ local groupOverrides = [
           name: 'satellites',
           location: { mode: 'auto' },
           config: {
-            // numeric threshold legend shows ids, not names -> hidden; the "By group"
-            // pie is the readable colour key (same colours).
-            showLegend: false,
+            showLegend: true,
             style: {
               size: { fixed: 7 },
               color: { field: 'group' },  // numeric group id -> colour via value mappings
