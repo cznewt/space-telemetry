@@ -106,8 +106,8 @@ def _render_html(info: dict) -> str:
 _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>space-telemetry · map</title>
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
 <style>
   html,body,#map{height:100%;margin:0}
   .panel{position:absolute;background:rgba(18,18,24,.88);color:#eee;z-index:1;
@@ -138,12 +138,21 @@ const GROUPS=[['iss','#e02b2b'],['css','#ff8f1f'],['weather','#3b82f6'],['noaa',
 const colorExpr=['match',['get','group']]; for(const [g,c] of GROUPS) colorExpr.push(g,c); colorExpr.push('#888');
 const hidden=new Set(); let lastSats=[]; const $=id=>document.getElementById(id);
 const map=new maplibregl.Map({container:'map',hash:true,
-  style:{version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+  style:{version:8,glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
     tileSize:256,attribution:'© OpenStreetMap contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]},
   center:[12,25],zoom:1.4,maxZoom:8,renderWorldCopies:true});
 map.addControl(new maplibregl.NavigationControl(),'top-right');
-function tracksFC(sats){return {type:'FeatureCollection',features:sats.filter(s=>s.track&&s.track.length>1).map(s=>(
-  {type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:s.track.map(p=>[p[1],p[0]])}}))};}
+function tracksFC(sats){const f=[];for(const s of sats){if(!s.track||s.track.length<2)continue;
+  let seg=[[s.track[0][1],s.track[0][0]]];
+  for(let i=1;i<s.track.length;i++){const lat=s.track[i][0],lon=s.track[i][1],plat=s.track[i-1][0],plon=s.track[i-1][1];
+    if(Math.abs(lon-plon)>180){const east=lon<plon;const dl=east?(lon+360-plon):(lon-360-plon);
+      const ef=east?180:-180,et=east?-180:180;const il=plat+(lat-plat)*((ef-plon)/dl);
+      seg.push([ef,il]);f.push({type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:seg}});seg=[[et,il]];}
+    seg.push([lon,lat]);}
+  if(seg.length>1)f.push({type:'Feature',properties:{group:s.group,name:s.name},geometry:{type:'LineString',coordinates:seg}});}
+  return {type:'FeatureCollection',features:f};}
+function obsFC(obs){return {type:'FeatureCollection',features:(obs||[]).map(o=>({type:'Feature',properties:{name:o.name},geometry:{type:'Point',coordinates:[o.lon,o.lat]}}))};}
 function pointsFC(sats){return {type:'FeatureCollection',features:sats.map(s=>({type:'Feature',
   properties:{name:s.name,group:s.group,alt:s.alt_km,el:s.elevation,sunlit:s.sunlit?1:0},
   geometry:{type:'Point',coordinates:[s.lon,s.lat]}}))};}
@@ -155,6 +164,7 @@ function applyFilters(){const groups=GROUPS.map(([g])=>g).filter(g=>!hidden.has(
 let last=0;
 async function refresh(){try{const d=await (await fetch('/api/satellites.json')).json();lastSats=d.satellites||[];
   map.getSource('tracks').setData(tracksFC(lastSats));map.getSource('sats').setData(pointsFC(lastSats));
+  map.getSource('obs').setData(obsFC(d.observers));
   $('count').textContent=lastSats.length;last=Date.now();
   const cnt={};for(const s of lastSats)cnt[s.group]=(cnt[s.group]||0)+1;
   $('legend').innerHTML='<b>groups · click to hide</b>'+GROUPS.filter(([g])=>cnt[g]).map(([g,c])=>
@@ -172,7 +182,10 @@ map.on('load',()=>{
   map.addSource('sats',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'tracks',type:'line',source:'tracks',paint:{'line-color':colorExpr,'line-width':1.3,'line-opacity':.5}});
   map.addLayer({id:'sat-dots',type:'circle',source:'sats',paint:{'circle-radius':6,'circle-color':colorExpr,'circle-stroke-width':2,'circle-stroke-color':'#fff'}});
-  map.addLayer({id:'sat-labels',type:'symbol',source:'sats',layout:{'text-field':['get','name'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top','text-optional':true},paint:{'text-color':'#fff','text-halo-color':'#000','text-halo-width':1.3}});
+  map.addLayer({id:'sat-labels',type:'symbol',source:'sats',layout:{'text-field':['get','name'],'text-font':['Open Sans Regular'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top','text-allow-overlap':true},paint:{'text-color':'#fff','text-halo-color':'#000','text-halo-width':1.3}});
+  map.addSource('obs',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'obs-dot',type:'circle',source:'obs',paint:{'circle-radius':7,'circle-color':'#ffd400','circle-stroke-width':2,'circle-stroke-color':'#000'}});
+  map.addLayer({id:'obs-label',type:'symbol',source:'obs',layout:{'text-field':['get','name'],'text-font':['Open Sans Regular'],'text-size':12,'text-offset':[0,1.3],'text-anchor':'top','text-allow-overlap':true},paint:{'text-color':'#ffd400','text-halo-color':'#000','text-halo-width':1.6}});
   map.on('click','sat-dots',e=>{const p=e.features[0].properties;new maplibregl.Popup().setLngLat(e.lngLat)
     .setHTML('<b>'+p.name+'</b><br>group '+p.group+'<br>alt '+p.alt+' km · el '+p.el+'°'+(+p.sunlit?' · ☀ sunlit':'')).addTo(map);});
   const hov=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:12});

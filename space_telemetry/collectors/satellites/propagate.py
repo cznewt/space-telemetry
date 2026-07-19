@@ -193,19 +193,12 @@ class SatelliteProvider:
                 period_min = 95.0
             step = period_min / steps
             pts = []
-            prev = None
             for i in range(-steps // 2, steps // 2 + 1):
                 t = self.ts.tt_jd(now.tt + (i * step) / 1440.0)
                 try:
                     lat, lon = subpoint_at(sat.earthsat, t)
                 except Exception:
                     continue
-                if prev is not None:  # unwrap longitude for a continuous polyline
-                    while lon - prev > 180:
-                        lon -= 360
-                    while lon - prev < -180:
-                        lon += 360
-                prev = lon
                 pts.append([round(lat, 3), round(lon, 3)])
             out[sat.norad_id] = pts
         return out

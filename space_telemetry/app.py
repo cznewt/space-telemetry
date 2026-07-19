@@ -77,11 +77,14 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
     return info
 
 
-def _satellites_fn(settings, sat_providers):
-    """Live satellite positions + fine ground tracks + group, for the /map view."""
+def _satellites_fn(settings, sat_providers, observers):
+    """Live satellite positions + fine ground tracks + group + observers, for /map."""
+    obs = [{"name": o.name, "lat": round(o.latitude_deg, 4), "lon": round(o.longitude_deg, 4)}
+           for o in observers]
+
     def data() -> dict:
         if not (settings.sat_enabled and sat_providers):
-            return {"satellites": []}
+            return {"satellites": [], "observers": obs}
         p = sat_providers[0]
         groups = {norad: g for norad, name, g in p.infos()}
         tracks = p.ground_tracks()
@@ -96,7 +99,7 @@ def _satellites_fn(settings, sat_providers):
                 "sunlit": s.sunlit,
                 "track": tracks.get(s.norad_id, []),
             })
-        return {"satellites": sats}
+        return {"satellites": sats, "observers": obs}
     return data
 
 
@@ -141,7 +144,7 @@ def run(settings: "Settings | None" = None) -> None:
 
     server = make_server(settings.host, settings.port,
                          _info_fn(settings, observers, sat_providers, sat_updater, sw_updater),
-                         _satellites_fn(settings, sat_providers))
+                         _satellites_fn(settings, sat_providers, observers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "
