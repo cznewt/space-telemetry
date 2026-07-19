@@ -25,3 +25,6 @@ space-telemetry = "space_telemetry.app:main"
 
 [tool.setuptools.packages.find]
 include = ["space_telemetry*"]
+
+[tool.setuptools.package-data]
+"space_telemetry.collectors.celestial_bodies" = ["data/*.csv"]

@@ -1,45 +1,50 @@
-"""Built-in bright-star catalog (ICRS/J2000). Offline, no ephemeris required."""
+"""Bright-star catalog backed by the HYG database (vendored subset, magnitude ≤ 6.5).
+
+Source: HYG v4.4 — https://codeberg.org/astronexus/hyg (CC BY-SA 4.0). The vendored CSV
+keeps a stable id, a display name (proper name, else Bayer/Flamsteed + constellation,
+else a catalog designation), the ICRS/J2000 position (RA hours, Dec degrees), apparent
+visual magnitude, distance in light-years, spectral type and 3-letter constellation.
+"""
 
 from __future__ import annotations
 
-# name, right ascension (hours), declination (degrees), apparent visual magnitude
-STAR_CATALOG = [
-    ("sirius", 6.7525, -16.7161, -1.46),
-    ("canopus", 6.3992, -52.6957, -0.74),
-    ("arcturus", 14.2610, 19.1825, -0.05),
-    ("vega", 18.6156, 38.7837, 0.03),
-    ("capella", 5.2782, 45.9980, 0.08),
-    ("rigel", 5.2423, -8.2016, 0.13),
-    ("procyon", 7.6550, 5.2250, 0.34),
-    ("betelgeuse", 5.9195, 7.4071, 0.50),
-    ("achernar", 1.6286, -57.2367, 0.46),
-    ("altair", 19.8464, 8.8683, 0.77),
-    ("aldebaran", 4.5987, 16.5093, 0.85),
-    ("antares", 16.4901, -26.4320, 1.09),
-    ("spica", 13.4199, -11.1613, 1.04),
-    ("pollux", 7.7553, 28.0262, 1.14),
-    ("fomalhaut", 22.9608, -29.6222, 1.16),
-    ("deneb", 20.6905, 45.2803, 1.25),
-    ("regulus", 10.1395, 11.9672, 1.35),
-    ("polaris", 2.5302, 89.2641, 1.98),
-]
+import csv
+from functools import lru_cache
+from pathlib import Path
 
-_MAGNITUDE = {name: mag for name, _ra, _dec, mag in STAR_CATALOG}
+_CSV = Path(__file__).with_name("data") / "hyg_bright.csv"
 
 
-def star_targets(names: set[str] | None = None) -> dict:
-    """Return ``{name: (Star, magnitude)}`` for the requested star names.
-
-    Unknown names are ignored. ``names=None`` returns the whole catalog.
-    """
-    from skyfield.api import Star
-
-    out: dict[str, tuple] = {}
-    for name, ra_hours, dec_degrees, magnitude in STAR_CATALOG:
-        if names is None or name in names:
-            out[name] = (Star(ra_hours=ra_hours, dec_degrees=dec_degrees), magnitude)
+@lru_cache(maxsize=1)
+def load_catalog() -> list:
+    """``[(id, name, ra_hours, dec_deg, mag, dist_ly, spect, con)]`` — brightest first,
+    deduplicated by display name (the name is a metric label, so it must be unique; the
+    CSV is magnitude-sorted, so the first/brightest of a shared name wins)."""
+    out: list = []
+    seen: set = set()
+    with open(_CSV, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if r["name"] in seen:
+                continue
+            seen.add(r["name"])
+            out.append((
+                r["id"], r["name"], float(r["ra"]), float(r["dec"]), float(r["mag"]),
+                float(r["dist_ly"]) if r["dist_ly"] else None,
+                r["spect"], r["con"],
+            ))
     return out
 
 
-def magnitude(name: str) -> float | None:
-    return _MAGNITUDE.get(name)
+def tracked_stars(max_magnitude: float, names=None) -> list:
+    """Catalog entries with magnitude ≤ ``max_magnitude``, plus any whose display name is
+    in ``names`` (case-insensitive) so explicitly-named fainter stars are kept as well."""
+    want = {n.lower() for n in (names or [])}
+    return [s for s in load_catalog() if s[4] <= max_magnitude or s[1].lower() in want]
+
+
+def magnitude(name: str) -> "float | None":
+    lo = name.lower()
+    for s in load_catalog():
+        if s[1].lower() == lo:
+            return s[4]
+    return None

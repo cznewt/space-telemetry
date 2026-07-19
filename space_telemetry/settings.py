@@ -68,8 +68,9 @@ class Settings(BaseSettings):
     bodies: Annotated[list[str], NoDecode] = _DEFAULT_BODIES
     min_elevation_deg: float = 0.0           # horizon mask (bodies, stars, satellite passes)
 
-    # --- Celestial bodies (stars) ---
-    stars: Annotated[list[str], NoDecode] = _DEFAULT_STARS
+    # --- Celestial bodies (stars, backed by the vendored HYG catalog) ---
+    stars: Annotated[list[str], NoDecode] = _DEFAULT_STARS  # always-tracked names (any magnitude)
+    star_max_magnitude: float = 4.0          # also track every HYG star at least this bright
 
     # --- Ephemeris / cache ---
     ephemeris: str = "de421.bsp"
