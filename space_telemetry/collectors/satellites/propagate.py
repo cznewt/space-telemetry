@@ -11,6 +11,7 @@ from time import monotonic
 
 import numpy as np
 from skyfield.api import wgs84
+from skyfield.framelib import itrs
 
 from .model import CatalogHolder, SatelliteState
 
@@ -179,29 +180,49 @@ class SatelliteProvider:
         return [(sat.norad_id, sat.name, group_label(sat))
                 for sat in self._tracked(catalog)]
 
-    def ground_tracks(self, orbits=10, steps_per_orbit=24):
-        """Forward ground track per tracked sat, for the /map view: from now out to
-        `orbits` future orbital periods (2π / mean motion), sampled at `steps_per_orbit`
-        points per orbit. Starts at the current sub-point so the line joins the marker.
-        Vectorised over the whole time span. {norad: [[lat, lon], ...]}."""
+    def ground_tracks(self, orbits=10, points=240, nominal_period_min=95.0):
+        """Forward ground track per tracked sat, for the /map view: from now out over
+        ~`orbits` orbital periods, sampled in `points` steps. All satellites share ONE
+        time grid (a nominal LEO period), so Earth orientation is computed once instead of
+        per satellite — each sat's own period only changes how many loops it completes over
+        the fixed span, which is fine for a map. Sub-points use the spherical (geocentric)
+        latitude: visually identical at map scale but far cheaper than the iterative
+        geodetic solve. {norad: [[lat, lon], ...]}."""
         catalog = self.holder.get()
         now = self.ts.now()
+        offsets_min = np.linspace(0.0, orbits * nominal_period_min, points + 1)
+        t = self.ts.tt_jd(now.tt + offsets_min / 1440.0)  # one grid, shared by all sats
         out: dict[int, list] = {}
         for sat in self._tracked(catalog):
             try:
-                period_min = 2.0 * np.pi / sat.earthsat.model.no_kozai  # no_kozai: rad/min
-            except Exception:
-                period_min = 95.0
-            n = max(1, int(steps_per_orbit * orbits))
-            offsets_min = np.linspace(0.0, period_min * orbits, n + 1)
-            t = self.ts.tt_jd(now.tt + offsets_min / 1440.0)
-            try:
-                sub = wgs84.subpoint(sat.earthsat.at(t))
-                out[sat.norad_id] = np.round(
-                    np.column_stack([sub.latitude.degrees, sub.longitude.degrees]), 3
-                ).tolist()
+                x, y, z = sat.earthsat.at(t).frame_xyz(itrs).km
+                lat = np.degrees(np.arctan2(z, np.sqrt(x * x + y * y)))
+                lon = np.degrees(np.arctan2(y, x))
+                # 2 dp ≈ 1 km on the ground: plenty for a world map, half the payload
+                out[sat.norad_id] = np.round(np.column_stack([lat, lon]), 2).tolist()
             except Exception:
                 continue
+        return out
+
+    def positions(self):
+        """Lightweight current sub-satellite positions for the /map feed: subpoint,
+        altitude, elevation, sunlit and group, with NO pass prediction — states() runs
+        find_events (seconds, cold) which the map does not need. Keeps /map cheap on
+        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit}]."""
+        catalog = self.holder.get()
+        t = self.ts.now()
+        out = []
+        for sat in self._tracked(catalog):
+            try:
+                geo = topocentric_state(sat.earthsat, self._topos, self.eph, t)
+            except Exception:
+                continue
+            out.append({
+                "norad": sat.norad_id, "name": sat.name, "group": group_label(sat),
+                "lat": geo["subpoint_lat_deg"], "lon": geo["subpoint_lon_deg"],
+                "alt_m": geo["altitude_m"], "elevation": geo["elevation_deg"],
+                "sunlit": geo["sunlit"],
+            })
         return out
 
     def catalog(self):

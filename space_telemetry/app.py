@@ -71,7 +71,8 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
                 "satellites": satellites,
                 "space_weather": space_weather,
             },
-            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/api/satellites.json"],
+            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map",
+                          "/api/satellites.json", "/api/tracks.json"],
         }
 
     return info
@@ -92,47 +93,64 @@ def _lon_delta(a: float, b: float) -> float:
     return min(d, 360.0 - d)
 
 
-def _satellites_fn(settings, sat_providers, observers):
-    """Live satellite positions + fine ground tracks + group + observers, for /map."""
+def _visible_map_sats(p):
+    """Provider positions after collapsing ISS/CSS modules into one marker and hiding
+    craft docked at a station. Returns position dicts (norad, name, group, lat, lon,
+    alt_m, elevation, sunlit); shared by the /map position and track feeds."""
+    raw = p.positions()
+    anchors = [(r["lat"], r["lon"]) for r in raw if r["group"] in _STATIONS]
+
+    def at_station(lat, lon):
+        return any(abs(lat - alat) < _DOCKED_EPS_DEG and _lon_delta(lon, alon) < _DOCKED_EPS_DEG
+                   for alat, alon in anchors)
+
+    out = []
+    seen_station: set[str] = set()
+    for r in raw:
+        g = r["group"]
+        if g in _STATIONS:  # keep one marker per station, not one per module
+            if g in seen_station:
+                continue
+            seen_station.add(g)
+            r = {**r, "name": _STATIONS[g]}
+        elif g == "stations" and at_station(r["lat"], r["lon"]):
+            continue  # docked craft / module co-located with ISS or CSS — hide it
+        out.append(r)
+    return out
+
+
+def _positions_fn(settings, sat_providers, observers):
+    """Current sub-satellite positions + observers, for the /map markers — small and
+    polled frequently. Ground tracks are big and ride a separate endpoint."""
     obs = [{"name": o.name, "lat": round(o.latitude_deg, 4), "lon": round(o.longitude_deg, 4)}
            for o in observers]
 
     def data() -> dict:
         if not (settings.sat_enabled and sat_providers):
             return {"satellites": [], "observers": obs}
-        p = sat_providers[0]
-        groups = {norad: g for norad, name, g in p.infos()}
-        tracks = p.ground_tracks()
-        states = [(s, groups.get(s.norad_id, "other")) for s in p.states()]
-
-        # ground points of the station markers (ISS/CSS), to hide anything docked there
-        anchors = [(s.subpoint_lat_deg, s.subpoint_lon_deg) for s, g in states if g in _STATIONS]
-
-        def at_station(lat: float, lon: float) -> bool:
-            return any(abs(lat - alat) < _DOCKED_EPS_DEG and _lon_delta(lon, alon) < _DOCKED_EPS_DEG
-                       for alat, alon in anchors)
-
-        sats = []
-        seen_station: set[str] = set()
-        for s, g in states:
-            name = s.name
-            if g in _STATIONS:  # keep one marker per station, not one per module
-                if g in seen_station:
-                    continue
-                seen_station.add(g)
-                name = _STATIONS[g]
-            elif g == "stations" and at_station(s.subpoint_lat_deg, s.subpoint_lon_deg):
-                continue  # docked craft / module co-located with ISS or CSS — hide it
-            sats.append({
-                "norad": s.norad_id, "name": name,
-                "group": g,
-                "lat": round(s.subpoint_lat_deg, 3), "lon": round(s.subpoint_lon_deg, 3),
-                "alt_km": round(s.altitude_m / 1000.0, 1),
-                "elevation": round(s.elevation_deg, 1),
-                "sunlit": s.sunlit,
-                "track": tracks.get(s.norad_id, []),
-            })
+        sats = [{
+            "norad": r["norad"], "name": r["name"], "group": r["group"],
+            "lat": round(r["lat"], 3), "lon": round(r["lon"], 3),
+            "alt_km": round(r["alt_m"] / 1000.0, 1),
+            "elevation": round(r["elevation"], 1),
+            "sunlit": r["sunlit"],
+        } for r in _visible_map_sats(sat_providers[0])]
         return {"satellites": sats, "observers": obs}
+    return data
+
+
+def _tracks_fn(settings, sat_providers):
+    """Multi-orbit ground tracks for the /map, one entry per visible satellite. Big, so
+    it rides its own endpoint that the page fetches far less often than the positions."""
+    def data() -> dict:
+        if not (settings.sat_enabled and sat_providers):
+            return {"tracks": []}
+        p = sat_providers[0]
+        tracks = p.ground_tracks()
+        return {"tracks": [
+            {"name": r["name"], "group": r["group"], "track": tracks.get(r["norad"], [])}
+            for r in _visible_map_sats(p)
+        ]}
     return data
 
 
@@ -177,7 +195,8 @@ def run(settings: "Settings | None" = None) -> None:
 
     server = make_server(settings.host, settings.port,
                          _info_fn(settings, observers, sat_providers, sat_updater, sw_updater),
-                         _satellites_fn(settings, sat_providers, observers))
+                         _positions_fn(settings, sat_providers, observers),
+                         _tracks_fn(settings, sat_providers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "
