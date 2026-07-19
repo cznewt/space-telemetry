@@ -71,8 +71,9 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
                 "satellites": satellites,
                 "space_weather": space_weather,
             },
-            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map",
-                          "/api/satellites.json", "/api/tracks.json", "/api/passes.json"],
+            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/table",
+                          "/api/satellites.json", "/api/tracks.json", "/api/passes.json",
+                          "/api/bodies.json"],
         }
 
     return info
@@ -185,6 +186,27 @@ def _passes_fn(settings, sat_providers):
     return data
 
 
+def _bodies_fn(settings, body_samplers):
+    """Solar-system body positions for /api/bodies.json and the /table view: altitude,
+    azimuth, distance, next rise/set, plus Moon illumination and phase."""
+    def data() -> dict:
+        if not body_samplers:
+            return {"bodies": []}
+        snap = body_samplers[0].sample()
+        return {"bodies": [{
+            "name": s.body,
+            "altitude": round(float(s.altitude_deg), 2),
+            "azimuth": round(float(s.azimuth_deg), 1),
+            "distance_km": round(float(s.distance_m) / 1000.0),
+            "up": bool(s.above_horizon),
+            "rise": float(s.next_rise_ts) if s.next_rise_ts is not None else None,
+            "set": float(s.next_set_ts) if s.next_set_ts is not None else None,
+            "illum": round(float(s.illuminated_fraction) * 100, 1) if s.illuminated_fraction is not None else None,
+            "phase": round(float(s.phase_deg), 1) if s.phase_deg is not None else None,
+        } for s in snap.bodies]}
+    return data
+
+
 def run(settings: "Settings | None" = None) -> None:
     settings = settings or Settings()
     os.makedirs(settings.cache_dir, exist_ok=True)
@@ -228,7 +250,8 @@ def run(settings: "Settings | None" = None) -> None:
                          _info_fn(settings, observers, sat_providers, sat_updater, sw_updater),
                          _positions_fn(settings, sat_providers, observers),
                          _tracks_fn(settings, sat_providers),
-                         _passes_fn(settings, sat_providers))
+                         _passes_fn(settings, sat_providers),
+                         _bodies_fn(settings, body_samplers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "
