@@ -172,7 +172,7 @@ map.on('load',()=>{
   map.addSource('tracks',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addSource('sats',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'tracks',type:'line',source:'tracks',paint:{'line-color':colorExpr,'line-width':1.3,'line-opacity':.5}});
-  map.addLayer({id:'sat-dots',type:'circle',source:'sats',paint:{'circle-radius':5,'circle-color':colorExpr,'circle-stroke-width':1,'circle-stroke-color':'#111'}});
+  map.addLayer({id:'sat-dots',type:'circle',source:'sats',paint:{'circle-radius':6,'circle-color':colorExpr,'circle-stroke-width':2,'circle-stroke-color':'#fff'}});
   map.addLayer({id:'sat-labels',type:'symbol',source:'sats',layout:{'text-field':['get','name'],'text-size':11,'text-offset':[0,1.1],'text-anchor':'top','text-optional':true},paint:{'text-color':'#fff','text-halo-color':'#000','text-halo-width':1.3}});
   map.on('click','sat-dots',e=>{const p=e.features[0].properties;new maplibregl.Popup().setLngLat(e.lngLat)
     .setHTML('<b>'+p.name+'</b><br>group '+p.group+'<br>alt '+p.alt+' km · el '+p.el+'°'+(+p.sunlit?' · ☀ sunlit':'')).addTo(map);});
