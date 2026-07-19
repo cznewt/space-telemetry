@@ -77,6 +77,11 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
     return info
 
 
+# Multi-module space stations are catalogued as several NORAD objects sharing one
+# ground point; on the map they collapse to a single marker labelled by station.
+_STATIONS = {"iss": "ISS", "css": "CSS"}
+
+
 def _satellites_fn(settings, sat_providers, observers):
     """Live satellite positions + fine ground tracks + group + observers, for /map."""
     obs = [{"name": o.name, "lat": round(o.latitude_deg, 4), "lon": round(o.longitude_deg, 4)}
@@ -89,10 +94,18 @@ def _satellites_fn(settings, sat_providers, observers):
         groups = {norad: g for norad, name, g in p.infos()}
         tracks = p.ground_tracks()
         sats = []
+        seen_station: set[str] = set()
         for s in p.states():
+            g = groups.get(s.norad_id, "other")
+            name = s.name
+            if g in _STATIONS:  # keep one marker per station, not one per module
+                if g in seen_station:
+                    continue
+                seen_station.add(g)
+                name = _STATIONS[g]
             sats.append({
-                "norad": s.norad_id, "name": s.name,
-                "group": groups.get(s.norad_id, "other"),
+                "norad": s.norad_id, "name": name,
+                "group": g,
                 "lat": round(s.subpoint_lat_deg, 3), "lon": round(s.subpoint_lon_deg, 3),
                 "alt_km": round(s.altitude_m / 1000.0, 1),
                 "elevation": round(s.elevation_deg, 1),
