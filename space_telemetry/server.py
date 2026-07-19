@@ -8,6 +8,7 @@ and every configured observer.
 
 from __future__ import annotations
 
+import gzip
 import html
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -163,7 +164,7 @@ function applyFilters(){const groups=GROUPS.map(([g])=>g).filter(g=>!hidden.has(
   for(const l of ['sat-dots','sat-labels','tracks']) if(map.getLayer(l)) map.setFilter(l,flt);}
 let last=0;
 async function refresh(){try{const d=await (await fetch('/api/satellites.json')).json();lastSats=d.satellites||[];
-  map.getSource('tracks').setData(tracksFC(lastSats));map.getSource('sats').setData(pointsFC(lastSats));
+  map.getSource('sats').setData(pointsFC(lastSats));
   map.getSource('obs').setData(obsFC(d.observers));
   $('count').textContent=lastSats.length;last=Date.now();
   const cnt={};for(const s of lastSats)cnt[s.group]=(cnt[s.group]||0)+1;
@@ -172,6 +173,9 @@ async function refresh(){try{const d=await (await fetch('/api/satellites.json'))
   $('legend').querySelectorAll('.row').forEach(r=>r.onclick=()=>{const g=r.dataset.g;hidden.has(g)?hidden.delete(g):hidden.add(g);r.classList.toggle('off');applyFilters();});
   applyFilters();
 }catch(e){console.error(e);}}
+async function refreshTracks(){try{const d=await(await fetch('/api/tracks.json')).json();
+  map.getSource('tracks').setData(tracksFC(d.tracks||[]));applyFilters();
+}catch(e){console.error('tracks',e);}}
 setInterval(()=>{if(last)$('ago').textContent=Math.round((Date.now()-last)/1000)+'s ago';},1000);
 $('search').addEventListener('input',()=>{applyFilters();const q=$('search').value.trim().toLowerCase();
   if(q){const m=lastSats.find(s=>s.name.toLowerCase().includes(q));if(m)map.flyTo({center:[m.lon,m.lat],zoom:Math.max(map.getZoom(),3)});}});
@@ -192,12 +196,12 @@ map.on('load',()=>{
   map.on('mouseenter','sat-dots',e=>{map.getCanvas().style.cursor='pointer';hov.setLngLat(e.lngLat).setHTML('<b>'+e.features[0].properties.name+'</b>').addTo(map);});
   map.on('mousemove','sat-dots',e=>{if(e.features.length)hov.setLngLat(e.lngLat).setHTML('<b>'+e.features[0].properties.name+'</b>');});
   map.on('mouseleave','sat-dots',()=>{map.getCanvas().style.cursor='';hov.remove();});
-  refresh();setInterval(refresh,15000);
+  refresh();refreshTracks();setInterval(refresh,15000);setInterval(refreshTracks,180000);
 });
 </script></body></html>"""
 
 
-def make_server(host: str, port: int, info_fn, satellites_fn=None) -> ThreadingHTTPServer:
+def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "space-telemetry"
@@ -205,6 +209,11 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None) -> ThreadingH
         def _send(self, code: int, body: bytes, content_type: str) -> None:
             self.send_response(code)
             self.send_header("Content-Type", content_type)
+            # gzip larger payloads (the /map track feed is big and rides a slow tunnel)
+            if len(body) > 1400 and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                body = gzip.compress(body, 5)
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Vary", "Accept-Encoding")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             if self.command != "HEAD":
@@ -229,7 +238,10 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None) -> ThreadingH
                 self._send(200, _MAP_HTML.encode(), "text/html; charset=utf-8")
             elif path == "/api/satellites.json":
                 data = satellites_fn() if satellites_fn else {"satellites": []}
-                self._send(200, json.dumps(data).encode(), "application/json")
+                self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
+            elif path == "/api/tracks.json":
+                data = tracks_fn() if tracks_fn else {"tracks": []}
+                self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             else:
                 self._send(404, b"not found\n", "text/plain; charset=utf-8")
 
