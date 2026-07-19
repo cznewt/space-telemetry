@@ -1,0 +1,11 @@
+hyg_bright.csv is a filtered subset (apparent magnitude <= 6.5, selected columns,
+deduplicated display names) of the HYG Star Database, version 4.4.
+
+Source:  https://codeberg.org/astronexus/hyg
+Author:  David Nash (astronexus)
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+         https://creativecommons.org/licenses/by-sa/4.0/
+
+The HYG database compiles the Hipparcos, Yale Bright Star, and Gliese catalogs.
+This subset keeps: id, display name, RA (hours), Dec (degrees), apparent magnitude,
+distance (converted to light-years), spectral type and constellation.
