@@ -302,6 +302,8 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   <div class="ov"><table><thead><tr><th>Body</th><th class="num">Alt</th><th class="num">Az</th><th class="num">Distance</th><th>Rise / set</th><th>Moon</th></tr></thead><tbody id="btb"></tbody></table></div>
   <h2>Satellites over observer <span id="sc"></span><span class="ago" id="ago"></span></h2>
   <div class="ov"><table><thead><tr><th>Satellite</th><th>Group</th><th class="num">Alt km</th><th class="num">El</th><th class="num">Footprint</th><th>Sub-point</th><th>Next pass</th><th>Sun</th></tr></thead><tbody id="stb"></tbody></table></div>
+  <h2>Bright stars <span id="tc"></span><span class="ago" style="font-weight:400;opacity:.5;text-transform:none;letter-spacing:0">HYG catalog</span></h2>
+  <div class="ov"><table><thead><tr><th>Star</th><th class="num">Mag</th><th class="num">Alt</th><th class="num">Az</th><th>Con</th><th class="num">Distance</th><th>Rise / set</th><th>Spectral</th></tr></thead><tbody id="ttb"></tbody></table></div>
 </div>
 <script>
 const GC={iss:'#e02b2b',css:'#ff8f1f',weather:'#3b82f6',noaa:'#22c55e',goes:'#a855f7',stations:'#9aa0aa'};
@@ -329,12 +331,21 @@ async function sats(){try{const[sd,pd]=await Promise.all([fetch('/api/satellites
       +'<td class="num">'+x.footprint_km+'</td><td>'+x.lat.toFixed(1)+', '+x.lon.toFixed(1)+'</td>'
       +'<td>'+np+'</td><td>'+(x.sunlit?'☀':'')+'</td></tr>';}).join('');
 }catch(e){console.error(e);}}
-bodies();sats();setInterval(sats,15000);setInterval(bodies,30000);
+async function stars(){try{const t=(await(await fetch('/api/stars.json')).json()).stars||[];
+  $('tc').textContent=t.length?'· '+t.length:'';
+  $('ttb').innerHTML=t.map(x=>{const up=x.up;
+    const rs=(x.rise==null&&x['set']==null)?(up?'always up':'never'):(up?'sets '+hm(x['set']):'rises '+hm(x.rise));
+    return '<tr><td class="'+(up?'up':'down')+'">'+x.name+'</td><td class="num">'+x.mag.toFixed(2)+'</td>'
+      +'<td class="num '+(up?'up':'down')+'">'+x.altitude.toFixed(1)+'°</td><td class="num">'+x.azimuth.toFixed(0)+'°</td>'
+      +'<td>'+x.con+'</td><td class="num">'+(x.dist_ly!=null?x.dist_ly+' ly':'')+'</td>'
+      +'<td>'+rs+'</td><td>'+(x.spect||'')+'</td></tr>';}).join('');
+}catch(e){console.error(e);}}
+bodies();sats();stars();setInterval(sats,15000);setInterval(stars,15000);setInterval(bodies,30000);
 </script></body></html>"""
 
 
 def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None,
-                passes_fn=None, bodies_fn=None) -> ThreadingHTTPServer:
+                passes_fn=None, bodies_fn=None, stars_fn=None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "space-telemetry"
@@ -388,6 +399,9 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             elif path == "/api/bodies.json":
                 data = bodies_fn() if bodies_fn else {"bodies": []}
+                self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
+            elif path == "/api/stars.json":
+                data = stars_fn() if stars_fn else {"stars": []}
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             else:
                 self._send(404, b"not found\n", "text/plain; charset=utf-8")

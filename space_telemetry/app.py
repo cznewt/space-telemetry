@@ -73,7 +73,7 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
             },
             "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/table",
                           "/api/satellites.json", "/api/tracks.json", "/api/passes.json",
-                          "/api/bodies.json"],
+                          "/api/bodies.json", "/api/stars.json"],
         }
 
     return info
@@ -207,6 +207,24 @@ def _bodies_fn(settings, body_samplers):
     return data
 
 
+def _stars_fn(settings, star_samplers):
+    """Bright-star positions for /api/stars.json and the /table view: alt/az, magnitude,
+    distance, spectral type, constellation and next rise/set, sorted brightest-first."""
+    def data() -> dict:
+        if not star_samplers:
+            return {"stars": []}
+        snap = star_samplers[0].sample()
+        stars = [{
+            "name": s.star, "mag": s.magnitude,
+            "altitude": s.altitude_deg, "azimuth": s.azimuth_deg, "up": bool(s.above_horizon),
+            "dist_ly": s.distance_ly, "spect": s.spectral, "con": s.constellation,
+            "rise": s.next_rise_ts, "set": s.next_set_ts,
+        } for s in snap.stars]
+        stars.sort(key=lambda x: x["mag"])
+        return {"stars": stars}
+    return data
+
+
 def run(settings: "Settings | None" = None) -> None:
     settings = settings or Settings()
     os.makedirs(settings.cache_dir, exist_ok=True)
@@ -218,7 +236,8 @@ def run(settings: "Settings | None" = None) -> None:
     if settings.bodies:
         body_samplers = [BodySampler(eph=eph, observer=o, ts=ts, settings=settings) for o in observers]
         REGISTRY.register(BodyCollector(body_samplers))
-    if settings.stars:
+    star_samplers: list = []
+    if settings.stars or settings.star_max_magnitude > 0:
         star_samplers = [StarSampler(eph=eph, observer=o, ts=ts, settings=settings) for o in observers]
         REGISTRY.register(StarCollector(star_samplers))
 
@@ -251,7 +270,8 @@ def run(settings: "Settings | None" = None) -> None:
                          _positions_fn(settings, sat_providers, observers),
                          _tracks_fn(settings, sat_providers),
                          _passes_fn(settings, sat_providers),
-                         _bodies_fn(settings, body_samplers))
+                         _bodies_fn(settings, body_samplers),
+                         _stars_fn(settings, star_samplers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "
