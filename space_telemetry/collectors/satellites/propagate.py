@@ -18,6 +18,33 @@ from .model import CatalogHolder, SatelliteState
 
 _C = 299_792_458.0  # speed of light, m/s
 _R_EARTH_KM = 6371.0  # mean Earth radius
+_MU_KM3_S2 = 398_600.4418  # Earth's gravitational parameter
+
+
+def orbit_class(earthsat) -> str:
+    """LEO / MEO / GEO / HEO from the element set, for the /map + /table orbit filter.
+    GEO is ~1 rev/day and near-circular; HEO is highly elliptical (Molniya/Tundra,
+    e ≥ 0.25) or beyond GEO; LEO keeps its apogee under 2,000 km; MEO is the rest."""
+    m = earthsat.model
+    rev_per_day = m.no_kozai * 1440.0 / (2.0 * math.pi)  # no_kozai is rad/min
+    if 0.9 <= rev_per_day <= 1.1 and m.ecco < 0.1:
+        return "GEO"
+    if m.ecco >= 0.25 or rev_per_day < 0.9:
+        return "HEO"
+    n = m.no_kozai / 60.0  # rad/s
+    a_km = (_MU_KM3_S2 / (n * n)) ** (1.0 / 3.0)
+    return "LEO" if a_km * (1.0 + m.ecco) - _R_EARTH_KM < 2000.0 else "MEO"
+
+
+def active_downlinks(transmitters) -> list:
+    """Distinct active downlinks as ``[mhz, mode]`` pairs, lowest first, for the band and
+    mode filters. The mode is the first word of SatNOGS's (``BPSK PMT-A3`` → ``BPSK``)."""
+    out = set()
+    for tx in transmitters:
+        if tx.downlink_hz and tx.status == "active":
+            mode = ((tx.mode or "").split() or [""])[0].upper()
+            out.add((round(tx.downlink_hz / 1e6, 3), mode))
+    return [list(x) for x in sorted(out)]
 
 
 def footprint_radius_km(altitude_m: float, mask_deg: float = 0.0) -> float:
@@ -287,7 +314,8 @@ class SatelliteProvider:
         elevation, sunlit, group and footprint radius, with NO pass prediction — states()
         runs find_events (seconds, cold) which the map does not need. ``offset_min`` shifts
         the evaluation time from now (the /map time scrubber, ±1 day). Keeps /map cheap on
-        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit, footprint_km}]."""
+        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit, footprint_km,
+        orbit, tx}] — orbit and tx (active downlinks) feed the /map + /table filters."""
         catalog = self.holder.get()
         t = self.ts.tt_jd(self.ts.now().tt + offset_min / 1440.0) if offset_min else self.ts.now()
         out = []
@@ -302,6 +330,8 @@ class SatelliteProvider:
                 "alt_m": geo["altitude_m"], "elevation": geo["elevation_deg"],
                 "sunlit": geo["sunlit"],
                 "footprint_km": footprint_radius_km(geo["altitude_m"], self.settings.min_elevation_deg),
+                "orbit": orbit_class(sat.earthsat),
+                "tx": active_downlinks(sat.transmitters),
             })
         return out
 
