@@ -1,6 +1,7 @@
-# Weather-satellite ground station: track NOAA / GOES / Meteor groups plus a
-# hand-picked watchlist. Stars are off to keep cardinality down; the Sun/Moon
-# stay useful for day/night and illumination.
+# Weather-satellite ground station: track the weather / GOES groups and focus on
+# the Meteor LRPT satellites (137.1 / 137.9 MHz), which /table plans pass by pass.
+# Stars are off to keep cardinality down; the Sun/Moon stay useful for day/night
+# and illumination.
 
 observer_name: station
 observer_lat: 50.0755
@@ -9,8 +10,10 @@ observer_elevation_m: 200
 min_elevation_deg: 10                       # only reckon passes above 10°
 
 sat_enabled: true
-sat_groups: [weather, noaa, goes]
-sat_watchlist: [25544, 33591, 28654, 25338] # ISS, NOAA-19, NOAA-18, NOAA-15
+sat_groups: [weather, goes]                 # CelesTrak no longer has a `noaa` group
+sat_watchlist: [25544]                      # ISS
+sat_focus: [57166, 59051]                   # METEOR-M2 3, METEOR-M2 4
+sat_focus_min_elevation_deg: 30             # ★ good pass + SatelliteFocusGoodPass alert
 celestrak_format: tle
 tle_refresh_hours: 6
 pass_lookahead_hours: 24

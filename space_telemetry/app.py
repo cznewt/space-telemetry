@@ -22,7 +22,7 @@ from .collectors.celestial_bodies.collector import StarCollector
 from .collectors.celestial_bodies.sampler import StarSampler
 from .collectors.satellites.collector import SatelliteCollector
 from .collectors.satellites.model import CatalogHolder
-from .collectors.satellites.propagate import SatelliteProvider, footprint_radius_km
+from .collectors.satellites.propagate import SatelliteProvider, footprint_radius_km, group_label
 from .collectors.satellites.updater import SatelliteUpdater
 from .collectors.space_weather.collector import SpaceWeatherCollector
 from .collectors.space_weather.updater import SpaceWeatherUpdater
@@ -62,6 +62,8 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
             satellites.update({
                 "groups": list(settings.sat_groups),
                 "watchlist": list(settings.sat_watchlist),
+                "focus": list(settings.sat_focus),
+                "focus_min_elevation_deg": settings.sat_focus_min_elevation_deg,
                 "catalog_size": total,
                 "with_transmitters": with_tx,
                 "sources": _health_json(sat_updater.health()),
@@ -90,7 +92,7 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
             },
             "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/table",
                           "/api/satellites.json", "/api/tracks.json", "/api/passes.json",
-                          "/api/bodies.json", "/api/stars.json"],
+                          "/api/focus.json", "/api/bodies.json", "/api/stars.json"],
         }
 
     return info
@@ -144,6 +146,8 @@ def _positions_fn(settings, sat_providers, observers):
     obs = [{"name": o.name, "lat": round(o.latitude_deg, 4), "lon": round(o.longitude_deg, 4)}
            for o in observers]
 
+    focus = set(settings.sat_focus)
+
     def data(offset_min=0.0) -> dict:
         if not (settings.sat_enabled and sat_providers):
             return {"satellites": [], "observers": obs}
@@ -154,6 +158,7 @@ def _positions_fn(settings, sat_providers, observers):
             "elevation": round(r["elevation"], 1),
             "sunlit": r["sunlit"],
             "footprint_km": round(r["footprint_km"]),
+            **({"focus": 1} if r["norad"] in focus else {}),
         } for r in _visible_map_sats(sat_providers[0], offset_min)]
         return {"satellites": sats, "observers": obs}
     return data
@@ -162,6 +167,8 @@ def _positions_fn(settings, sat_providers, observers):
 def _tracks_fn(settings, sat_providers):
     """Multi-orbit ground tracks for the /map, one entry per visible satellite. Big, so
     it rides its own endpoint that the page fetches far less often than the positions."""
+    focus = set(settings.sat_focus)
+
     def data() -> dict:
         if not (settings.sat_enabled and sat_providers):
             return {"tracks": []}
@@ -169,7 +176,8 @@ def _tracks_fn(settings, sat_providers):
         tracks = p.ground_tracks()
         return {"tracks": [
             {"name": r["name"], "group": r["group"], "alt": round(r["alt_m"] / 1000.0),
-             "track": tracks.get(r["norad"], [])}
+             "track": tracks.get(r["norad"], []),
+             **({"focus": 1} if r["norad"] in focus else {})}
             for r in _visible_map_sats(p)
         ]}
     return data
@@ -179,6 +187,8 @@ def _passes_fn(settings, sat_providers):
     """Upcoming passes over the observer, for /api/passes.json and the /map passes panel:
     for each visible satellite that rises within the lookahead window, its next AOS/LOS,
     peak elevation, duration and reception-footprint radius. Sorted soonest-first."""
+    focus = set(settings.sat_focus)
+
     def data() -> dict:
         if not (settings.sat_enabled and sat_providers):
             return {"passes": []}
@@ -197,9 +207,58 @@ def _passes_fn(settings, sat_providers):
                 "duration_s": dur,
                 "footprint_km": round(footprint_radius_km(s.altitude_m, mask)),
                 "up_now": bool(s.above_horizon),
+                "focus": s.norad_id in focus,
             })
         passes.sort(key=lambda x: x["aos"])
         return {"passes": passes}
+    return data
+
+
+def _downlinks(transmitters, limit=4):
+    """Distinct active downlinks for the focus pass plan, lowest first and sub-GHz
+    ones when there are any (what a hobby station receives). SatNOGS often lists
+    one frequency several times; each gets its most common mode."""
+    modes: dict[float, list[str]] = {}
+    for tx in transmitters:
+        if tx.downlink_hz and tx.status == "active":
+            modes.setdefault(round(tx.downlink_hz / 1e6, 3), []).append(tx.mode or "")
+    freqs = sorted(modes)
+    low = [f for f in freqs if f < 1000.0]
+    return [{"mhz": f, "mode": max(sorted(set(modes[f])), key=modes[f].count)}
+            for f in (low or freqs)[:limit]]
+
+
+def _focus_fn(settings, sat_providers):
+    """Focus satellites for /api/focus.json and the /map + /table focus views: where
+    each one is now, its main downlinks, and every pass over the first observer in
+    the lookahead window (AOS/LOS, peak elevation, AOS/LOS azimuth, good/now flags)."""
+    def data() -> dict:
+        out = {"min_elevation": settings.sat_focus_min_elevation_deg,
+               "lookahead_hours": settings.pass_lookahead_hours, "focus": []}
+        if not (settings.sat_enabled and sat_providers and settings.sat_focus):
+            return out
+        p = sat_providers[0]
+        now = time.time()
+        good_el = settings.sat_focus_min_elevation_deg
+        for sat, passes in p.focus_plan():
+            el, az = p.look_angles(sat)
+            out["focus"].append({
+                "norad": sat.norad_id, "name": sat.name, "group": group_label(sat),
+                "elevation": round(el, 1), "azimuth": round(az),
+                "up_now": el > settings.min_elevation_deg,
+                "downlinks": _downlinks(sat.transmitters),
+                "passes": [{
+                    "aos": round(x["aos"]), "los": round(x["los"]),
+                    "tca": round(x["tca"]) if x["tca"] is not None else None,
+                    "max_elev": round(x["max_elev"], 1) if x["max_elev"] is not None else None,
+                    "aos_az": round(x["aos_az"]), "los_az": round(x["los_az"]),
+                    "duration_s": round(x["los"] - x["aos"]),
+                    "good": x["max_elev"] is not None and x["max_elev"] >= good_el,
+                    "now": x["aos"] <= now < x["los"],
+                } for x in passes if x["los"] > now],
+            })
+        out["observer"] = p.observer.name
+        return out
     return data
 
 
@@ -288,12 +347,14 @@ def run(settings: "Settings | None" = None) -> None:
                          _tracks_fn(settings, sat_providers),
                          _passes_fn(settings, sat_providers),
                          _bodies_fn(settings, body_samplers),
-                         _stars_fn(settings, star_samplers))
+                         _stars_fn(settings, star_samplers),
+                         focus_fn=_focus_fn(settings, sat_providers))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "
         f"solar_system_bodies={len(settings.bodies)} | celestial_bodies={len(settings.stars)} | "
-        f"satellites={'on' if settings.sat_enabled else 'off'} | "
+        f"satellites={'on' if settings.sat_enabled else 'off'}"
+        f"{' focus=' + ','.join(map(str, settings.sat_focus)) if settings.sat_focus else ''} | "
         f"space_weather={'on' if settings.space_weather_enabled else 'off'}",
         flush=True,
     )

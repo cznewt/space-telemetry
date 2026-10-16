@@ -20,8 +20,11 @@ Skyfield `EarthSatellite` objects (SGP4/SDP4); OMM JSON is supported too
 ## Tracked set & cardinality
 
 Live geometry is computed only for the **tracked set** =
-`sat_watchlist` ∪ (satellites in the configured `sat_groups`). The catalog itself
-can be much larger; only tracked satellites emit `satellite_*` geometry series.
+`sat_watchlist` ∪ `sat_focus` ∪ (satellites in the configured `sat_groups`).
+Watchlist and focus ids are also fetched one by one (`gp.php?CATNR=<id>`, source
+`celestrak:catnr:<id>`), so they are tracked even when no configured group
+contains them; such satellites get the group `other`. Only tracked satellites
+emit `satellite_*` geometry series.
 
 > Keep `sat_groups` small (e.g. `stations`, `weather`, `amateur`) and lean on the
 > watchlist. Tracking a group like `active` (~10 000 satellites) × transmitters ×
@@ -48,6 +51,30 @@ For each tracked satellite from the observer, at scrape time:
   for `sat_pass_cache_ttl_s`.
 - **Doppler** — for each transmitter downlink `f`: `Δf = −(range_rate / c)·f`
   (positive when approaching).
+
+## Focus satellites
+
+`sat_focus` names the satellites you actually want to receive, e.g. the Meteor
+LRPT birds (newt-prg runs `SPACE_TELEMETRY_SAT_FOCUS=57166,59051`, METEOR-M2 3
+and METEOR-M2 4). Focus satellites are:
+
+- **always tracked**, even outside `sat_groups` (fetched by catalog number);
+- **highlighted** on `/map` (larger dot with a gold ring, gold label, bold ground
+  track; hiding their group in the legend does not hide them) and pinned to the
+  top of `/table` and the map's passes panel with a ★;
+- given a **pass plan**: every pass over the observer within
+  `pass_lookahead_hours` (not just the next one), each with AOS / LOS, duration,
+  peak elevation, AOS → LOS direction, and the satellite's main SatNOGS downlinks
+  (sub-GHz first, e.g. `137.100 · 137.900 MHz LRPT`). It heads `/table` and is
+  served at `/api/focus.json`.
+
+A pass that peaks at or above `sat_focus_min_elevation_deg` (default 30°) is a
+**good pass**: ★ in the plan, exported as
+`satellite_focus_next_good_pass_{aos,los}_timestamp_seconds` and
+`satellite_focus_next_good_pass_max_elevation_degrees`, and the observ-lib alert
+`SatelliteFocusGoodPass` (severity `info`) fires `focusPassLeadMinutes` (15)
+before its AOS. The search window and pass mask are `pass_lookahead_hours` and
+`min_elevation_deg`; the plan is cached for `sat_pass_cache_ttl_s`.
 
 ## Signals
 
@@ -77,14 +104,17 @@ or `satnogs:satellites`.
 | `satellite_next_pass_aos_timestamp_seconds` | Next pass acquisition-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
 | `satellite_next_pass_los_timestamp_seconds` | Next pass loss-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
 | `satellite_next_pass_max_elevation_degrees` ★ | Peak elevation of the next pass. | degrees | 0 … 90 | `norad`, `name`, `observer` |
+| `satellite_focus_next_good_pass_aos_timestamp_seconds` ★ | Focus satellite (sat_focus) — AOS of the next pass peaking at or above sat_focus_min_elevation_deg; a pass under way counts until LOS. | unix seconds | now − 20 min … now + lookahead | `norad`, `name`, `observer`, `group` |
+| `satellite_focus_next_good_pass_los_timestamp_seconds` | Focus satellite — LOS of the next good pass. | unix seconds | >= now | `norad`, `name`, `observer`, `group` |
+| `satellite_focus_next_good_pass_max_elevation_degrees` ★ | Focus satellite — peak elevation of the next good pass. | degrees | sat_focus_min_elevation_deg … 90 | `norad`, `name`, `observer`, `group` |
 | `satellite_transmitter_downlink_hertz` | Transmitter downlink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_transmitter_uplink_hertz` | Transmitter uplink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_transmitter_baud` | Transmitter symbol rate. | baud | ~50 … ~1e6 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_doppler_hertz` | Doppler shift on the downlink at the current range rate. | hertz | ~-1e5 … 1e5 | `norad`, `uuid`, `observer` |
-| `satellite_info` | Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations). | info | 1 | `norad`, `name`, `group` |
+| `satellite_info` | Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations; other for watchlist/focus ids outside every group). | info | 1 | `norad`, `name`, `group` |
 | `satellite_catalog_size` | Number of satellites in the offline catalog. | count | >= 0 | — |
 | `satellite_catalog_with_transmitters` | Catalog satellites that have at least one transmitter. | count | >= 0 | — |
-| `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ groups). | count | >= 0 | `observer` |
+| `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ focus ∪ groups). | count | >= 0 | `observer` |
 | `satellite_data_update_success` ★ | 1 if the source's last fetch attempt succeeded, else 0. | boolean | 0 or 1 | `source` |
 | `satellite_data_update_timestamp_seconds` | Last successful fetch time, per source. | unix seconds | <= now | `source` |
 | `satellite_data_age_seconds` | Seconds since the source's last successful fetch. | seconds | >= 0 | `source` |
@@ -108,7 +138,8 @@ day (the defaults do). A real `user_agent` is sent.
 
 ## Configuration
 
-`sat_enabled`, `sat_groups`, `sat_watchlist`, `celestrak_format`,
+`sat_enabled`, `sat_groups`, `sat_watchlist`, `sat_focus`,
+`sat_focus_min_elevation_deg`, `celestrak_format`,
 `tle_refresh_hours`, `transmitter_refresh_hours`,
 `satnogs_satellites_refresh_hours`, `pass_lookahead_hours`,
 `sat_pass_cache_ttl_s` — see [Configuration](../configuration.md). Example:

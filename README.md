@@ -35,7 +35,8 @@ curl -s localhost:9110/metrics | grep -E '^(body_|star_|satellite_|space_weather
 
 Open `http://localhost:9110/` for a status page. Endpoints: `/` (info,
 `?format=json` for JSON), `/metrics` (Prometheus), `/status` (JSON), `/health`
-+ `/healthz`.
++ `/healthz`, `/map` (live satellite map), `/table` (focus pass plan, satellites,
+passes, bodies, stars) and their JSON feeds `/api/{satellites,tracks,passes,focus,bodies,stars}.json`.
 
 ## Configuration
 
@@ -51,6 +52,7 @@ Copy `space-telemetry.example.yaml` to start.
 | stars | `STARS` | sirius,vega,arcturus,capella,rigel,betelgeuse,aldebaran,polaris |
 | horizon mask | `MIN_ELEVATION_DEG` | 0 |
 | satellites | `SAT_ENABLED`, `SAT_GROUPS`, `SAT_WATCHLIST`, `TLE_REFRESH_HOURS` | on · [stations] · [] · 8 |
+| focus satellites | `SAT_FOCUS` (NORAD ids, e.g. `57166,59051` = METEOR-M2 3/4), `SAT_FOCUS_MIN_ELEVATION_DEG` | [] · 30 |
 | space weather | `SPACE_WEATHER_ENABLED`, `SPACE_WEATHER_REFRESH_MINUTES` | on · 5 |
 | serving | `HOST`, `PORT`, `CACHE_DIR`, `OTLP_ENDPOINT` | 0.0.0.0 · 9110 · data · — |
 
@@ -123,14 +125,17 @@ labels. Per-collector detail is in [docs/](docs/index.md).
 | `satellite_next_pass_aos_timestamp_seconds` | Next pass acquisition-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
 | `satellite_next_pass_los_timestamp_seconds` | Next pass loss-of-signal time. | unix seconds | >= now | `norad`, `name`, `observer` |
 | `satellite_next_pass_max_elevation_degrees` ★ | Peak elevation of the next pass. | degrees | 0 … 90 | `norad`, `name`, `observer` |
+| `satellite_focus_next_good_pass_aos_timestamp_seconds` ★ | Focus satellite (sat_focus) — AOS of the next pass peaking at or above sat_focus_min_elevation_deg; a pass under way counts until LOS. | unix seconds | now − 20 min … now + lookahead | `norad`, `name`, `observer`, `group` |
+| `satellite_focus_next_good_pass_los_timestamp_seconds` | Focus satellite — LOS of the next good pass. | unix seconds | >= now | `norad`, `name`, `observer`, `group` |
+| `satellite_focus_next_good_pass_max_elevation_degrees` ★ | Focus satellite — peak elevation of the next good pass. | degrees | sat_focus_min_elevation_deg … 90 | `norad`, `name`, `observer`, `group` |
 | `satellite_transmitter_downlink_hertz` | Transmitter downlink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_transmitter_uplink_hertz` | Transmitter uplink frequency (from SatNOGS). | hertz | ~3e7 … ~3e10 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_transmitter_baud` | Transmitter symbol rate. | baud | ~50 … ~1e6 | `norad`, `uuid`, `mode`, `status` |
 | `satellite_doppler_hertz` | Doppler shift on the downlink at the current range rate. | hertz | ~-1e5 … 1e5 | `norad`, `uuid`, `observer` |
-| `satellite_info` | Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations). | info | 1 | `norad`, `name`, `group` |
+| `satellite_info` | Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations; other for watchlist/focus ids outside every group). | info | 1 | `norad`, `name`, `group` |
 | `satellite_catalog_size` | Number of satellites in the offline catalog. | count | >= 0 | — |
 | `satellite_catalog_with_transmitters` | Catalog satellites that have at least one transmitter. | count | >= 0 | — |
-| `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ groups). | count | >= 0 | `observer` |
+| `satellite_tracked_count` ★ | Satellites tracked live for the observer (watchlist ∪ focus ∪ groups). | count | >= 0 | `observer` |
 | `satellite_data_update_success` ★ | 1 if the source's last fetch attempt succeeded, else 0. | boolean | 0 or 1 | `source` |
 | `satellite_data_update_timestamp_seconds` | Last successful fetch time, per source. | unix seconds | <= now | `source` |
 | `satellite_data_age_seconds` | Seconds since the source's last successful fetch. | seconds | >= 0 | `source` |

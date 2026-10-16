@@ -117,8 +117,41 @@ def next_pass(earthsat, topos, ts, t0, hours, mask_deg):
     )
 
 
+def passes_between(earthsat, topos, ts, t0, hours, mask_deg, margin_min=30.0):
+    """Every pass that is under way at *t0* or rises within *hours* of it, oldest
+    first: ``[{aos, tca, los, max_elev, aos_az, los_az}]`` in UNIX seconds / degrees.
+    The search runs *margin_min* wider on both ends, so a pass in progress keeps its
+    real AOS and the last one its LOS (LEO passes last well under 30 minutes)."""
+    m = margin_min / 1440.0
+    times, events = earthsat.find_events(topos, ts.tt_jd(t0.tt - m),
+                                         ts.tt_jd(t0.tt + hours / 24.0 + m),
+                                         altitude_degrees=mask_deg)
+    diff = earthsat - topos
+    now = t0.utc_datetime().timestamp()
+    out, aos, tca, best = [], None, None, None
+    for t, event in zip(times, events):
+        if event == 0:                          # rise
+            aos, tca, best = t, None, None
+        elif event == 1 and aos is not None:    # culminate (keep the highest)
+            el = float(diff.at(t).altaz()[0].degrees)
+            if best is None or el > best:
+                tca, best = t, el
+        elif event == 2 and aos is not None:    # set
+            aos_s, los_s = aos.utc_datetime().timestamp(), t.utc_datetime().timestamp()
+            if los_s > now and aos_s <= now + hours * 3600.0:
+                out.append({
+                    "aos": aos_s, "los": los_s,
+                    "tca": tca.utc_datetime().timestamp() if tca is not None else None,
+                    "max_elev": best,
+                    "aos_az": float(diff.at(aos).altaz()[1].degrees),
+                    "los_az": float(diff.at(t).altaz()[1].degrees),
+                })
+            aos = None
+    return out
+
+
 class SatelliteProvider:
-    """Produces ``SatelliteState`` for the tracked set (watchlist ∪ selected groups)."""
+    """Produces ``SatelliteState`` for the tracked set (watchlist ∪ focus ∪ selected groups)."""
 
     def __init__(self, holder: CatalogHolder, observer, eph, ts, settings):
         self.holder = holder
@@ -128,13 +161,45 @@ class SatelliteProvider:
         self.settings = settings
         self._topos = observer.topos()
         self._pass_cache: dict[int, tuple[float, tuple]] = {}
+        self._plan_cache: dict[int, tuple[float, object, list]] = {}
 
     def _tracked(self, catalog):
         groups = set(self.settings.sat_groups)
-        watch = set(self.settings.sat_watchlist)
+        watch = set(self.settings.sat_watchlist) | set(self.settings.sat_focus)
         for sat in catalog.satellites.values():
             if sat.norad_id in watch or (sat.groups & groups):
                 yield sat
+
+    def focus_plan(self):
+        """``[(sat, passes)]`` for the focus satellites in the catalog, in sat_focus
+        order: every pass over pass_lookahead_hours (see passes_between). Cached per
+        satellite for sat_pass_cache_ttl_s, and recomputed when new elements land."""
+        catalog = self.holder.get()
+        t = self.ts.now()
+        now = monotonic()
+        out = []
+        for norad in self.settings.sat_focus:
+            sat = catalog.satellites.get(norad)
+            if sat is None:
+                continue
+            cached = self._plan_cache.get(norad)
+            if (cached is None or cached[1] is not sat
+                    or now - cached[0] >= self.settings.sat_pass_cache_ttl_s):
+                try:
+                    passes = passes_between(sat.earthsat, self._topos, self.ts, t,
+                                            self.settings.pass_lookahead_hours,
+                                            self.settings.min_elevation_deg)
+                except Exception:
+                    passes = []
+                cached = (now, sat, passes)
+                self._plan_cache[norad] = cached
+            out.append((sat, cached[2]))
+        return out
+
+    def look_angles(self, sat):
+        """``(elevation_deg, azimuth_deg)`` of *sat* from this observer, now."""
+        alt, az, _ = (sat.earthsat - self._topos).at(self.ts.now()).altaz()
+        return float(alt.degrees), float(az.degrees)
 
     def _pass(self, sat, t):
         cached = self._pass_cache.get(sat.norad_id)
