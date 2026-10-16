@@ -32,6 +32,7 @@ theme:
 nav:
   - Overview: index.md
   - Configuration: configuration.md
+  - Web UI: web.md
   - Deployment: deployment.md
   - Collectors:
       - Solar-system bodies: collectors/solar_system_bodies.md

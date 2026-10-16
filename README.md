@@ -16,7 +16,7 @@ refresh it and keep the last-good copy on failure. Solar-system + celestial
 bodies need no network at all after the one-time ephemeris download.
 
 📖 **Docs:** [`docs/`](docs/index.md) — [configuration](docs/configuration.md),
-[deployment](docs/deployment.md), and a page per collector
+[web UI](docs/web.md), [deployment](docs/deployment.md), and a page per collector
 ([solar_system_bodies](docs/collectors/solar_system_bodies.md) ·
 [celestial_bodies](docs/collectors/celestial_bodies.md) ·
 [satellites](docs/collectors/satellites.md) ·
@@ -37,6 +37,9 @@ Open `http://localhost:9110/` for a status page. Endpoints: `/` (info,
 `?format=json` for JSON), `/metrics` (Prometheus), `/status` (JSON), `/health`
 + `/healthz`, `/map` (live satellite map), `/table` (focus pass plan, satellites,
 passes, bodies, stars) and their JSON feeds `/api/{satellites,tracks,passes,focus,bodies,stars}.json`.
+Both pages share satellite filters (group or single satellite, orbit, altitude,
+radio band + mode, visibility / next pass) that live in the URL, e.g.
+`/map?band=137&mode=LRPT`; see [docs/web.md](docs/web.md).
 
 ## Configuration
 
