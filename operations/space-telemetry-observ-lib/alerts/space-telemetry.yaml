@@ -30,10 +30,10 @@ groups:
       severity: warning
   - alert: SpaceTelemetryTLEStale
     annotations:
-      description: The oldest element set is over 259200s old; the updater may be
-        stuck.
+      description: Half of the element sets are over 259200s old; the updater may
+        be stuck.
       summary: Satellite TLEs are stale.
-    expr: max(satellite_tle_age_seconds{job="space-telemetry"}) > 259200
+    expr: quantile(0.5, satellite_tle_age_seconds{job="space-telemetry"}) > 259200
     for: 1h
     labels:
       severity: warning
