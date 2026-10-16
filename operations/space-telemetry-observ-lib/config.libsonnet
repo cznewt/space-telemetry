@@ -8,6 +8,9 @@
   dashboardTags: ['space-telemetry', 'astronomy', 'space-weather'],
   datasource: '${datasource}',
 
+  // Grafana folder chain (root first): Workloads / Sky monitoring
+  folderPath: [{ uid: 'workloads', title: 'Workloads' }, { uid: 'workloads-sky', title: 'Sky monitoring' }],
+
   // observer_info carries job+observer and exists for every observer, so it
   // drives the $job / $observer dropdowns.
   varMetric: 'observer_info',
