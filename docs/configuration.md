@@ -10,7 +10,7 @@ Configuration comes from three layers, highest priority first:
 So an env var always overrides the YAML file, and the YAML file overrides the
 defaults. A `.env` file (dotenv) is also read, sitting between env and YAML.
 
-List fields (`bodies`, `stars`, `sat_groups`, `sat_watchlist`) accept either a
+List fields (`bodies`, `stars`, `sat_groups`, `sat_watchlist`, `sat_focus`) accept either a
 real YAML list or a comma-separated string in env vars
 (e.g. `SPACE_TELEMETRY_STARS=vega,sirius`).
 
@@ -69,7 +69,9 @@ SPACE_TELEMETRY_OBSERVERS='[{"name":"prague","latitude_deg":50.07,"longitude_deg
 |---|---|---|
 | `sat_enabled` | `true` | turn the whole collector off with `false` |
 | `sat_groups` | `[stations]` | CelesTrak GROUPs to track |
-| `sat_watchlist` | `[]` | extra NORAD ids, always tracked |
+| `sat_watchlist` | `[]` | extra NORAD ids, always tracked (fetched by catalog number when outside `sat_groups`) |
+| `sat_focus` | `[]` | NORAD ids to focus on, e.g. `57166,59051` (METEOR-M2 3/4): always tracked, highlighted on `/map` + `/table`, full pass plan at `/api/focus.json` — see [satellites → Focus](collectors/satellites.md#focus-satellites) |
+| `sat_focus_min_elevation_deg` | `30` | a focus pass peaking at least this high is a *good* pass (★ on `/table`, `satellite_focus_next_good_pass_*`, `SatelliteFocusGoodPass` alert) |
 | `celestrak_format` | `tle` | `tle` or `json` (OMM) |
 | `tle_refresh_hours` | `8` | orbit refresh cadence |
 | `transmitter_refresh_hours` | `168` | SatNOGS transmitter cadence |

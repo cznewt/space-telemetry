@@ -223,6 +223,26 @@ signals:
     range: "0 … 90"
     labels: [norad, name, observer]
     dashboard: true
+  - name: satellite_focus_next_good_pass_aos_timestamp_seconds
+    collector: satellites
+    description: Focus satellite (sat_focus) — AOS of the next pass peaking at or above sat_focus_min_elevation_deg; a pass under way counts until LOS.
+    unit: unix seconds
+    range: "now − 20 min … now + lookahead"
+    labels: [norad, name, observer, group]
+    dashboard: true
+  - name: satellite_focus_next_good_pass_los_timestamp_seconds
+    collector: satellites
+    description: Focus satellite — LOS of the next good pass.
+    unit: unix seconds
+    range: ">= now"
+    labels: [norad, name, observer, group]
+  - name: satellite_focus_next_good_pass_max_elevation_degrees
+    collector: satellites
+    description: Focus satellite — peak elevation of the next good pass.
+    unit: degrees
+    range: "sat_focus_min_elevation_deg … 90"
+    labels: [norad, name, observer, group]
+    dashboard: true
   - name: satellite_transmitter_downlink_hertz
     collector: satellites
     description: Transmitter downlink frequency (from SatNOGS).
@@ -249,7 +269,7 @@ signals:
     labels: [norad, uuid, observer]
   - name: satellite_info
     collector: satellites
-    description: Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations).
+    description: Static per-satellite info (value always 1); the group label maps each satellite to its family (iss, css, weather, noaa, goes, stations; other for watchlist/focus ids outside every group).
     unit: info
     range: "1"
     labels: [norad, name, group]
@@ -267,7 +287,7 @@ signals:
     labels: []
   - name: satellite_tracked_count
     collector: satellites
-    description: Satellites tracked live for the observer (watchlist ∪ groups).
+    description: Satellites tracked live for the observer (watchlist ∪ focus ∪ groups).
     unit: count
     range: ">= 0"
     labels: [observer]

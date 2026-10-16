@@ -34,11 +34,17 @@ class SatelliteUpdater:
         """(key, url, filename, refresh_hours, check) for every configured source.
         ``check(raw)`` returns why a 200 reply is unusable, or None (None = no check)."""
         fmt = self.settings.celestrak_format
+        check = lambda raw: celestrak.problem(raw, fmt)  # noqa: E731
         items = [
             (f"celestrak:{g}", celestrak.gp_url(g, fmt), celestrak.filename(g, fmt),
-             self.settings.tle_refresh_hours, lambda raw: celestrak.problem(raw, fmt))
+             self.settings.tle_refresh_hours, check)
             for g in self.settings.sat_groups
         ]
+        # Watchlist/focus ids are fetched one by one too, so they are tracked even
+        # when they sit outside every configured group (one tiny request each).
+        for norad in sorted(set(self.settings.sat_watchlist) | set(self.settings.sat_focus)):
+            items.append((f"celestrak:catnr:{norad}", celestrak.catnr_url(norad, fmt),
+                          celestrak.catnr_filename(norad, fmt), self.settings.tle_refresh_hours, check))
         items.append(("satnogs:transmitters", satnogs.TRANSMITTERS_URL,
                       "satnogs_transmitters.json", self.settings.transmitter_refresh_hours, None))
         items.append(("satnogs:satellites", satnogs.SATELLITES_URL,
