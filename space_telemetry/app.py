@@ -4,6 +4,7 @@ registry, start background updaters, and serve HTTP. Supports multiple observers
 from __future__ import annotations
 
 import os
+import time
 
 from prometheus_client import REGISTRY
 from skyfield.api import Loader
@@ -26,9 +27,24 @@ from .collectors.space_weather.collector import SpaceWeatherCollector
 from .collectors.space_weather.updater import SpaceWeatherUpdater
 
 
-def load_timescale_ephemeris(settings: Settings, loader: "Loader | None" = None):
+def load_timescale_ephemeris(settings: Settings, loader: "Loader | None" = None,
+                             attempts: int = 5, backoff_s: float = 5.0):
+    """Timescale + planetary ephemeris. The image ships the ephemeris in cache_dir;
+    wherever it is missing Skyfield downloads it, so a failed download is retried
+    with exponential backoff (5, 10, 20, 40 s) rather than crashing the exporter on
+    a transient DNS/network fault at boot. Raises after the last attempt."""
     loader = loader or Loader(str(settings.cache_dir))
-    return loader.timescale(), loader(settings.ephemeris)
+    ts = loader.timescale()
+    for attempt in range(1, attempts + 1):
+        try:
+            return ts, loader(settings.ephemeris)
+        except OSError as exc:
+            if attempt == attempts:
+                raise
+            wait = backoff_s * 2 ** (attempt - 1)
+            print(f"[space-telemetry] ephemeris {settings.ephemeris} unavailable ({exc}); "
+                  f"retry {attempt}/{attempts - 1} in {wait:.0f}s", flush=True)
+            time.sleep(wait)
 
 
 def _health_json(healths) -> list:
