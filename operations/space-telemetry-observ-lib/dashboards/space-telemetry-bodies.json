@@ -4,7 +4,8 @@
   "metadata": {
     "annotations": {
       "grafana.app/folder": "workloads-sky",
-      "observ-viz.dev/folder-path": "[{\"title\":\"Workloads\",\"uid\":\"workloads\"},{\"title\":\"Sky monitoring\",\"uid\":\"workloads-sky\"}]",
+      "observ-viz.dev/folder-parent-title": "Workloads",
+      "observ-viz.dev/folder-parent-uid": "workloads",
       "observ-viz.dev/folder-title": "Sky monitoring"
     },
     "name": "space-telemetry-bodies"
