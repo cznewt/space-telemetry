@@ -4,6 +4,7 @@ registry, start background updaters, and serve HTTP. Supports multiple observers
 from __future__ import annotations
 
 import os
+import signal
 import time
 
 from prometheus_client import REGISTRY
@@ -296,6 +297,9 @@ def run(settings: "Settings | None" = None) -> None:
         f"space_weather={'on' if settings.space_weather_enabled else 'off'}",
         flush=True,
     )
+    # As PID 1 in a container the process ignores SIGTERM unless it installs a handler,
+    # so a rollout would wait out the grace period (old pod still serving) before SIGKILL.
+    signal.signal(signal.SIGTERM, _stop_on_sigterm)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -304,6 +308,10 @@ def run(settings: "Settings | None" = None) -> None:
         for u in updaters:
             u.stop()
         server.shutdown()
+
+
+def _stop_on_sigterm(signum, frame):
+    raise KeyboardInterrupt  # unwinds serve_forever() into run()'s cleanup
 
 
 def main() -> None:  # console-script entrypoint
