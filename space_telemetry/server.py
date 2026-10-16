@@ -302,6 +302,8 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   <div class="ov"><table><thead><tr><th>Body</th><th class="num">Alt</th><th class="num">Az</th><th class="num">Distance</th><th>Rise / set</th><th>Moon</th></tr></thead><tbody id="btb"></tbody></table></div>
   <h2>Satellites over observer <span id="sc"></span><span class="ago" id="ago"></span></h2>
   <div class="ov"><table><thead><tr><th>Satellite</th><th>Group</th><th class="num">Alt km</th><th class="num">El</th><th class="num">Footprint</th><th>Sub-point</th><th>Next pass</th><th>Sun</th></tr></thead><tbody id="stb"></tbody></table></div>
+  <h2>Upcoming passes over observer <span id="pc"></span></h2>
+  <div class="ov"><table><thead><tr><th>Satellite</th><th>Group</th><th>AOS</th><th>LOS</th><th class="num">Duration</th><th class="num">Max el</th><th class="num">Footprint</th></tr></thead><tbody id="ptb"></tbody></table></div>
   <h2>Bright stars <span id="tc"></span><span class="ago" style="font-weight:400;opacity:.5;text-transform:none;letter-spacing:0">HYG catalog</span></h2>
   <div class="ov"><table><thead><tr><th>Star</th><th class="num">Mag</th><th class="num">Alt</th><th class="num">Az</th><th>Con</th><th class="num">Distance</th><th>Rise / set</th><th>Spectral</th></tr></thead><tbody id="ttb"></tbody></table></div>
 </div>
@@ -330,6 +332,14 @@ async function sats(){try{const[sd,pd]=await Promise.all([fetch('/api/satellites
       +'<td class="num">'+Math.round(x.alt_km)+'</td><td class="num '+(up?'up':'down')+'">'+x.elevation.toFixed(1)+'°</td>'
       +'<td class="num">'+x.footprint_km+'</td><td>'+x.lat.toFixed(1)+', '+x.lon.toFixed(1)+'</td>'
       +'<td>'+np+'</td><td>'+(x.sunlit?'☀':'')+'</td></tr>';}).join('');
+  const ps=pd.passes||[];
+  $('pc').textContent=ps.length?'· '+ps.length:'';
+  $('ptb').innerHTML=ps.map(p=>{const col=GC[p.group]||'#888';
+    const aos=p.up_now?'<span class="up">now</span>':(inMin(p.aos)+' · '+hm(p.aos));
+    return '<tr><td>'+p.name+'</td><td><span class="dot" style="background:'+col+'"></span>'+p.group+'</td>'
+      +'<td>'+aos+'</td><td>'+hm(p['los'])+'</td><td class="num">'+(p.duration_s?Math.round(p.duration_s/60)+' min':'')+'</td>'
+      +'<td class="num">'+(p.max_elev!=null?Math.round(p.max_elev)+'°':'')+'</td><td class="num">'+p.footprint_km+' km</td></tr>';}).join('')
+    ||'<tr><td colspan=7 style="opacity:.5">none in next 24 h</td></tr>';
 }catch(e){console.error(e);}}
 async function stars(){try{const t=(await(await fetch('/api/stars.json')).json()).stars||[];
   $('tc').textContent=t.length?'· '+t.length:'';

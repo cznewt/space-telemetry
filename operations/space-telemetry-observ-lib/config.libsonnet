@@ -8,6 +8,13 @@
   dashboardTags: ['space-telemetry', 'astronomy', 'space-weather'],
   datasource: '${datasource}',
 
+  // Grafana folder: Workloads / Sky monitoring. folderUid + parent (not folderPath)
+  // so the CI renderer image and push.py both understand the placement.
+  folderUid: 'workloads-sky',
+  folderTitle: 'Sky monitoring',
+  folderParentUid: 'workloads',
+  folderParentTitle: 'Workloads',
+
   // observer_info carries job+observer and exists for every observer, so it
   // drives the $job / $observer dropdowns.
   varMetric: 'observer_info',

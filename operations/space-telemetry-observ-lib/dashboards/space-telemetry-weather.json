@@ -2,6 +2,12 @@
   "apiVersion": "dashboard.grafana.app/v2beta1",
   "kind": "Dashboard",
   "metadata": {
+    "annotations": {
+      "grafana.app/folder": "workloads-sky",
+      "observ-viz.dev/folder-parent-title": "Workloads",
+      "observ-viz.dev/folder-parent-uid": "workloads",
+      "observ-viz.dev/folder-title": "Sky monitoring"
+    },
     "name": "space-telemetry-weather"
   },
   "spec": {
@@ -51,11 +57,35 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      }
+                    ]
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "textMode": "auto"
+              }
             },
             "version": ""
           }
@@ -102,11 +132,32 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "fillOpacity": 30,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
             },
             "version": ""
           }
@@ -153,11 +204,35 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      }
+                    ]
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "textMode": "auto"
+              }
             },
             "version": ""
           }
@@ -204,11 +279,32 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "fillOpacity": 30,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
             },
             "version": ""
           }
@@ -255,11 +351,35 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      }
+                    ]
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "textMode": "auto"
+              }
             },
             "version": ""
           }
@@ -306,11 +426,32 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "fillOpacity": 30,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
             },
             "version": ""
           }
@@ -357,11 +498,32 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "fillOpacity": 30,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
                   "unit": "s"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
             },
             "version": ""
           }
@@ -408,11 +570,35 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      }
+                    ]
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "textMode": "auto"
+              }
             },
             "version": ""
           }
@@ -459,11 +645,35 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      }
+                    ]
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "textMode": "auto"
+              }
             },
             "version": ""
           }
@@ -510,11 +720,32 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "fillOpacity": 30,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
             },
             "version": ""
           }
@@ -561,11 +792,35 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": null
+                      }
+                    ]
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "textMode": "auto"
+              }
             },
             "version": ""
           }
@@ -612,11 +867,32 @@
             "spec": {
               "fieldConfig": {
                 "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "fillOpacity": 30,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "smooth",
+                    "lineWidth": 2,
+                    "showPoints": "never"
+                  },
                   "unit": "short"
                 },
                 "overrides": []
               },
-              "options": {}
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
             },
             "version": ""
           }
