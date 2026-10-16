@@ -37,6 +37,9 @@
   absentFor: '10m',  // no `up` series at all (pod not running); rides out a rollout gap
   staleFor: '15m',
   tleStaleSeconds: 259200,  // 3 days
+  // SatelliteFocusGoodPass fires this long before AOS of a good focus pass (the
+  // "good" elevation itself is the exporter's sat_focus_min_elevation_deg).
+  focusPassLeadMinutes: 15,
 
   signals: {
     space_telemetry: (import './signals/space_telemetry.libsonnet')(this),
