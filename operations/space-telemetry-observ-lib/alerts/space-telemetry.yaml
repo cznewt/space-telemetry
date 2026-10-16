@@ -9,6 +9,15 @@ groups:
     for: 5m
     labels:
       severity: critical
+  - alert: SpaceTelemetryExporterAbsent
+    annotations:
+      description: 'No up{job="space-telemetry"} series for 10m: the exporter is not
+        running or not discovered, so SpaceTelemetryExporterDown cannot fire.'
+      summary: space-telemetry exporter has no scrape target.
+    expr: absent(up{job="space-telemetry"})
+    for: 10m
+    labels:
+      severity: critical
   - alert: SpaceTelemetrySourceFailing
     annotations:
       description: Source {{ $labels.source }} on {{ $labels.instance }} last fetch

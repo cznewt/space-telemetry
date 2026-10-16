@@ -90,6 +90,9 @@ local satmap = import 'satmap.libsonnet';
         name: 'space-telemetry',
         rules: [
           { alert: 'SpaceTelemetryExporterDown', expr: 'up{' + cfg.exporterSelector + '} == 0', 'for': cfg.downFor, labels: { severity: 'critical' }, annotations: { summary: 'space-telemetry exporter is down.', description: '{{ $labels.instance }} has been unreachable for more than ' + cfg.downFor + '.' } },
+          // `up == 0` needs a scrape target; a pod that never starts has none, so only
+          // absent() notices it (sky.newt.cz was down 25 days that way, 2026-09).
+          { alert: 'SpaceTelemetryExporterAbsent', expr: 'absent(up{' + cfg.exporterSelector + '})', 'for': cfg.absentFor, labels: { severity: 'critical' }, annotations: { summary: 'space-telemetry exporter has no scrape target.', description: 'No up{' + cfg.exporterSelector + '} series for ' + cfg.absentFor + ': the exporter is not running or not discovered, so SpaceTelemetryExporterDown cannot fire.' } },
           { alert: 'SpaceTelemetrySourceFailing', expr: 'satellite_data_update_success{' + cfg.exporterSelector + '} == 0 or space_weather_data_update_success{' + cfg.exporterSelector + '} == 0', 'for': cfg.staleFor, labels: { severity: 'warning' }, annotations: { summary: 'A space-telemetry data source is failing.', description: 'Source {{ $labels.source }} on {{ $labels.instance }} last fetch did not succeed.' } },
           { alert: 'SpaceTelemetryTLEStale', expr: 'max(satellite_tle_age_seconds{' + cfg.exporterSelector + '}) > ' + cfg.tleStaleSeconds, 'for': '1h', labels: { severity: 'warning' }, annotations: { summary: 'Satellite TLEs are stale.', description: 'The oldest element set is over ' + cfg.tleStaleSeconds + 's old; the updater may be stuck.' } },
           { alert: 'GeomagneticStorm', expr: 'space_weather_planetary_k_index{' + cfg.exporterSelector + '} >= 5', 'for': '0m', labels: { severity: 'info' }, annotations: { summary: 'Geomagnetic storm in progress (Kp {{ $value }}).', description: 'The planetary K-index has reached storm level (>= 5).' } },
@@ -99,7 +102,8 @@ local satmap = import 'satmap.libsonnet';
     ];
     local rules = [
       {
-        name: 'space-telemetry',
+        // distinct from the alert group's name: both load into one ruler namespace
+        name: 'space-telemetry-recording',
         rules: [
           { record: 'observer:body_above_horizon:sum', expr: 'sum by (observer) (body_above_horizon{' + cfg.exporterSelector + '})' },
           { record: 'job:satellite_tracked_count:sum', expr: 'sum(satellite_tracked_count{' + cfg.exporterSelector + '})' },

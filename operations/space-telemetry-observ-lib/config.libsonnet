@@ -34,6 +34,7 @@
 
   // Alert tuning.
   downFor: '5m',
+  absentFor: '10m',  // no `up` series at all (pod not running); rides out a rollout gap
   staleFor: '15m',
   tleStaleSeconds: 259200,  // 3 days
 
