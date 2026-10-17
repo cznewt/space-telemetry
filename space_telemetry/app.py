@@ -4,6 +4,8 @@ registry, start background updaters, and serve HTTP. Supports multiple observers
 from __future__ import annotations
 
 import os
+import signal
+import time
 
 from prometheus_client import REGISTRY
 from skyfield.api import Loader
@@ -26,9 +28,24 @@ from .collectors.space_weather.collector import SpaceWeatherCollector
 from .collectors.space_weather.updater import SpaceWeatherUpdater
 
 
-def load_timescale_ephemeris(settings: Settings, loader: "Loader | None" = None):
+def load_timescale_ephemeris(settings: Settings, loader: "Loader | None" = None,
+                             attempts: int = 5, backoff_s: float = 5.0):
+    """Timescale + planetary ephemeris. The image ships the ephemeris in cache_dir;
+    wherever it is missing Skyfield downloads it, so a failed download is retried
+    with exponential backoff (5, 10, 20, 40 s) rather than crashing the exporter on
+    a transient DNS/network fault at boot. Raises after the last attempt."""
     loader = loader or Loader(str(settings.cache_dir))
-    return loader.timescale(), loader(settings.ephemeris)
+    ts = loader.timescale()
+    for attempt in range(1, attempts + 1):
+        try:
+            return ts, loader(settings.ephemeris)
+        except OSError as exc:
+            if attempt == attempts:
+                raise
+            wait = backoff_s * 2 ** (attempt - 1)
+            print(f"[space-telemetry] ephemeris {settings.ephemeris} unavailable ({exc}); "
+                  f"retry {attempt}/{attempts - 1} in {wait:.0f}s", flush=True)
+            time.sleep(wait)
 
 
 def _health_json(healths) -> list:
@@ -280,6 +297,9 @@ def run(settings: "Settings | None" = None) -> None:
         f"space_weather={'on' if settings.space_weather_enabled else 'off'}",
         flush=True,
     )
+    # As PID 1 in a container the process ignores SIGTERM unless it installs a handler,
+    # so a rollout would wait out the grace period (old pod still serving) before SIGKILL.
+    signal.signal(signal.SIGTERM, _stop_on_sigterm)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -288,6 +308,10 @@ def run(settings: "Settings | None" = None) -> None:
         for u in updaters:
             u.stop()
         server.shutdown()
+
+
+def _stop_on_sigterm(signum, frame):
+    raise KeyboardInterrupt  # unwinds serve_forever() into run()'s cleanup
 
 
 def main() -> None:  # console-script entrypoint

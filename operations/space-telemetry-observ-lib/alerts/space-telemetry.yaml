@@ -9,6 +9,15 @@ groups:
     for: 5m
     labels:
       severity: critical
+  - alert: SpaceTelemetryExporterAbsent
+    annotations:
+      description: 'No up{job="space-telemetry"} series for 10m: the exporter is not
+        running or not discovered, so SpaceTelemetryExporterDown cannot fire.'
+      summary: space-telemetry exporter has no scrape target.
+    expr: absent(up{job="space-telemetry"})
+    for: 10m
+    labels:
+      severity: critical
   - alert: SpaceTelemetrySourceFailing
     annotations:
       description: Source {{ $labels.source }} on {{ $labels.instance }} last fetch
@@ -21,10 +30,10 @@ groups:
       severity: warning
   - alert: SpaceTelemetryTLEStale
     annotations:
-      description: The oldest element set is over 259200s old; the updater may be
-        stuck.
+      description: Half of the element sets are over 259200s old; the updater may
+        be stuck.
       summary: Satellite TLEs are stale.
-    expr: max(satellite_tle_age_seconds{job="space-telemetry"}) > 259200
+    expr: quantile(0.5, satellite_tle_age_seconds{job="space-telemetry"}) > 259200
     for: 1h
     labels:
       severity: warning

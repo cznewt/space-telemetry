@@ -8,9 +8,9 @@ Grafana dashboard plus Prometheus alerts and recording rules for the exporter's
 
 | Path | Contents |
 | --- | --- |
-| `dashboards/space-telemetry.json` | Grafana dashboard (schema v2): overview, solar-system bodies, stars, satellites, space weather, health |
-| `alerts/space-telemetry.yaml` | `SpaceTelemetryExporterDown`, `SpaceTelemetrySourceFailing`, `SpaceTelemetryTLEStale`, `GeomagneticStorm`, `SolarFlareMClass` |
-| `rules/space-telemetry.yaml` | `observer:body_above_horizon:sum`, `job:satellite_tracked_count:sum` |
+| `dashboards/space-telemetry-{weather,satellites,bodies}.json` | Grafana dashboards (schema v2), filed under *Workloads / Sky monitoring* |
+| `alerts/space-telemetry.yaml` | `SpaceTelemetryExporterDown`, `SpaceTelemetryExporterAbsent`, `SpaceTelemetrySourceFailing`, `SpaceTelemetryTLEStale`, `GeomagneticStorm`, `SolarFlareMClass` |
+| `rules/space-telemetry-recording.yaml` | `observer:body_above_horizon:sum`, `job:satellite_tracked_count:sum` |
 
 ## Rebuild
 
@@ -80,8 +80,13 @@ between the markers by hand — re-render instead).
 
 - **Dashboard**: push it to Grafana with `just grafana-push` (set `GRAFANA_URL`
   + `GRAFANA_TOKEN` [+ `GRAFANA_NAMESPACE`] in `.env` — see `.env.example`), or
-  import `dashboards/space-telemetry.json` manually. It expects `datasource`,
-  `job`, and `observer` template variables.
-- **Alerts / rules**: load the YAML into Prometheus/Mimir (or Grafana-managed
-  rules). The alerts scope to `job="space-telemetry"` — adjust `exporterSelector`
-  in `config.libsonnet` if your scrape job differs.
+  import the `dashboards/*.json` manually. They expect `datasource`, `job`, and
+  `observer` template variables.
+- **Alerts / rules**: `just rules-push` loads both groups into the Mimir ruler
+  through Grafana's data-source ruler API (ruler namespace `space-telemetry`; set
+  `RULER_DATASOURCE_UID` if your Mimir datasource uid is not `newt-mimir`; the
+  token needs `alert.rules.external:write`). Or load the YAML into Prometheus
+  yourself. The alerts scope to `job="space-telemetry"` — adjust
+  `exporterSelector` in `config.libsonnet` if your scrape job differs.
+  `SpaceTelemetryExporterAbsent` covers the case `ExporterDown` can't see: no
+  `up` series at all because the pod never started.

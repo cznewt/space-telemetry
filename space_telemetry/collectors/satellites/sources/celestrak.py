@@ -10,7 +10,7 @@ refreshing only a few times per day. Scrapes are served from the on-disk cache.
 from __future__ import annotations
 
 import json
-from typing import Iterator
+from typing import Iterator, Optional
 
 CELESTRAK_GP_URL = "https://celestrak.org/NORAD/elements/gp.php"
 
@@ -21,6 +21,25 @@ def gp_url(group: str, fmt: str = "tle") -> str:
 
 def filename(group: str, fmt: str) -> str:
     return f"celestrak_{group}.{'json' if fmt == 'json' else 'tle'}"
+
+
+def problem(raw: bytes, fmt: str) -> Optional[str]:
+    """Why a GP reply is unusable, or None if it carries element sets. CelesTrak
+    answers an unknown group with HTTP 200 and a one-line message such as
+    ``Invalid query: "GROUP=noaa&FORMAT=tle" (GROUP=noaa not found)``; caching that
+    would empty the group and still count as a successful fetch."""
+    text = raw.decode("utf-8", "replace").strip()
+    if fmt == "json":
+        try:
+            ok = bool(json.loads(text))
+        except ValueError:
+            ok = False
+    else:
+        lines = text.splitlines()
+        ok = any(ln.startswith("1 ") for ln in lines) and any(ln.startswith("2 ") for ln in lines)
+    if ok:
+        return None
+    return text.splitlines()[0][:200] if text else "empty reply"
 
 
 def parse(raw: bytes, fmt: str, ts) -> Iterator[tuple[int, str, object]]:

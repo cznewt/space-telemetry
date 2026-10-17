@@ -1,5 +1,5 @@
 groups:
-- name: space-telemetry
+- name: space-telemetry-recording
   rules:
   - expr: sum by (observer) (body_above_horizon{job="space-telemetry"})
     record: observer:body_above_horizon:sum

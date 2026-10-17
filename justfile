@@ -69,3 +69,8 @@ signals-build:
 # Push the rendered dashboard(s) to Grafana. Set GRAFANA_URL + GRAFANA_TOKEN in .env.
 grafana-push:
     python3 {{OBSERV_LIB}}/push.py {{OBSERV_LIB}}/dashboards/*.json
+
+# Load the rendered alerts + recording rules into the Mimir ruler through Grafana
+# (namespace space-telemetry; same .env as grafana-push, see rules_push.py).
+rules-push:
+    python3 {{OBSERV_LIB}}/rules_push.py {{OBSERV_LIB}}/alerts/*.yaml {{OBSERV_LIB}}/rules/*.yaml

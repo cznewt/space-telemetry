@@ -8,8 +8,10 @@ python -m space_telemetry     # or the console script: space-telemetry
 ```
 
 The first run downloads the ephemeris kernel (`de421.bsp`, ~17 MB) into
-`cache_dir`. After that the sky collectors are fully offline; the satellites and
-swpc updaters fetch in the background.
+`cache_dir`, retrying with backoff (5–40 s, five attempts) if the network isn't up
+yet. The container image already ships it in `/app/data`, so containers start
+without network access. After that the sky collectors are fully offline; the
+satellites and swpc updaters fetch in the background.
 
 ## Docker Compose
 
@@ -23,8 +25,9 @@ swpc updaters fetch in the background.
 
 The exporter runs from a **named volume** (`telemetry-data`) rather than a host
 bind-mount, so the container manages its own cache and never changes ownership of
-files in your working tree. Configuration is a read-only bind-mount of the YAML
-file:
+files in your working tree. Docker seeds a new named volume from the image, so it
+starts out holding the bundled ephemeris. Configuration is a read-only bind-mount
+of the YAML file:
 
 ```yaml
 volumes:
@@ -69,6 +72,12 @@ Prometheus only.
 
 `/healthz` (and `/health`) return `200 {"status":"ok"}`. The container's
 `HEALTHCHECK` polls `/healthz`.
+
+Alert rules ship in `operations/space-telemetry-observ-lib/alerts/`; `just
+rules-push` loads them into a Mimir ruler through Grafana. Besides
+`SpaceTelemetryExporterDown` (`up == 0`), `SpaceTelemetryExporterAbsent` fires
+when there is no `up` series at all, which is what a pod that never starts
+looks like.
 
 ## Cardinality
 
