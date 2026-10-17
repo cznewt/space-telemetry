@@ -109,6 +109,208 @@ def _render_html(info: dict) -> str:
     )
 
 
+# Satellite filter panel shared by /map and /table (spliced in at /*SF_CSS*/ and //SF_JS).
+_FILTER_CSS = r"""
+  .sf{font-size:12.5px;line-height:1.5}
+  .sf-head{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
+  .sf-head b{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
+  .sf-n{opacity:.7;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .sf-reset{color:#8ab4ff;cursor:pointer;margin-left:auto}
+  .sf-reset[hidden]{display:none}
+  .sf-fold{opacity:.6;cursor:pointer;user-select:none;margin-left:auto;width:14px;text-align:center}
+  .sf-reset:not([hidden])+.sf-fold{margin-left:0}
+  .sf.folded .sf-body{display:none}
+  .sf-sec{margin-top:10px}
+  .sf-t{font-size:10.5px;opacity:.5;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .sf-chips{display:flex;flex-wrap:wrap;gap:4px}
+  .sf-c{background:#ffffff10;border:1px solid #ffffff26;color:inherit;border-radius:11px;padding:1px 8px;font:inherit;font-size:12px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+  .sf-c:hover{background:#ffffff1f}
+  .sf-c i{font-style:normal;opacity:.55;font-size:11px}
+  .sf-c.on{background:#3b82f6;border-color:#3b82f6;color:#fff}
+  .sf-c.on i{opacity:.85}
+  .sf-g{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .sf-g.off{opacity:.38}
+  .sf-car{width:12px;opacity:.6;text-align:center;flex:none}
+  .sf-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .sf-ct{opacity:.55;margin-left:auto;padding-left:8px;font-variant-numeric:tabular-nums}
+  .sf-only{color:#8ab4ff;font-size:11px;visibility:hidden}
+  .sf-g:hover .sf-only,.sf-s:hover .sf-only{visibility:visible}
+  .sf-list{margin:1px 0 5px 5px;padding-left:12px;border-left:1px solid #ffffff1f;max-height:30vh;overflow:auto}
+  .sf-s{display:flex;gap:6px;align-items:center;cursor:pointer;user-select:none;white-space:nowrap}
+  .sf-s .nm{overflow:hidden;text-overflow:ellipsis;flex:1}
+  .sf-s.off{opacity:.4}
+  .sf-s.dim .nm{opacity:.5;font-style:italic}
+  .sf-alt{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center}
+  .sf-alt span{font-size:11px;opacity:.6}
+  .sf-alt .sf-altv{opacity:.85;font-variant-numeric:tabular-nums}
+  .sf-alt input{width:100%;margin:0;accent-color:#3b82f6;cursor:pointer}
+  .sf-sel{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:7px}
+  .sf select{color-scheme:dark;background:#0004;color:inherit;border:1px solid #fff3;border-radius:6px;font:inherit;font-size:12px;padding:1px 3px}
+  .sf-pin{display:flex;gap:6px;align-items:center;margin-top:9px;cursor:pointer;user-select:none}
+  .sf-q{background:#0004;border:1px solid #fff3;color:inherit;border-radius:6px;padding:3px 8px;font:inherit;flex:0 1 190px;min-width:110px;outline:none}
+  .sf-table{background:#14141c;border:1px solid #ffffff14;border-radius:10px;padding:10px 14px;margin-top:24px}
+  .sf-table .sf-body{display:flex;flex-wrap:wrap;gap:0 30px}
+  .sf-table .sf-sec{flex:1 1 200px;max-width:330px}
+"""
+
+_FILTER_JS = r"""
+// Shared satellite filters for /map and /table: groups with per-satellite toggles, orbit
+// class, altitude range, radio band + mode (active SatNOGS downlinks), visibility / next
+// pass. The state lives in the URL query (shareable; the map <-> table links carry it)
+// and is remembered in this browser. SF.visible() is the set of NORAD ids that pass.
+const SF=(()=>{
+const GROUPS=[['iss','#e02b2b'],['css','#ff8f1f'],['weather','#3b82f6'],['noaa','#22c55e'],['goes','#a855f7'],['stations','#9aa0aa'],['other','#cbd5e1']];
+// [key, chip, from MHz, to MHz, tooltip]; the hobby sub-bands come first so they win over the wide bands
+const BANDS=[['137','137 MHz',137,138,'137–138 MHz · λ ≈ 2.2 m · weather pictures (Meteor LRPT)'],
+  ['2m','2 m',144,148,'144–148 MHz · λ ≈ 2 m · amateur: ISS voice, APRS, SSTV'],
+  ['70cm','70 cm',430,440,'430–440 MHz · λ ≈ 69 cm · amateur: cubesats, ISS'],
+  ['hf','HF',0,30,'below 30 MHz · λ over 10 m'],
+  ['vhf','VHF',30,300,'other 30–300 MHz · λ 1–10 m'],
+  ['uhf','UHF',300,1000,'other 300–1000 MHz · λ 30 cm–1 m'],
+  ['l','L',1000,2000,'1–2 GHz · λ 15–30 cm · HRPT/AHRPT, GOES HRIT'],
+  ['s','S',2000,4000,'2–4 GHz · λ 7.5–15 cm · telemetry and control'],
+  ['c','C',4000,7000,'4–7 GHz · λ 4.3–7.5 cm'],
+  ['x','X',7000,12000,'7–12 GHz · λ 2.5–4.3 cm · bulk image and science downloads'],
+  ['ku','Ku',12000,18000,'12–18 GHz · λ 1.7–2.5 cm'],
+  ['ka','Ka',18000,1e9,'above 18 GHz · λ under 1.7 cm']];
+const ORBITS=[['LEO','low Earth orbit · apogee under 2,000 km'],['MEO','medium Earth orbit · 2,000 km up to GEO'],
+  ['GEO','geosynchronous · ~35,786 km, one orbit a day'],['HEO','highly elliptical (Molniya, Tundra) or beyond GEO']];
+const WIN=[0,1,3,6,12,24],PEAK=[0,10,20,30,45,60,75],AMIN=200,AMAX=40000,KEY='space-telemetry.filters';
+const bandOf=f=>{for(const b of BANDS)if(f>=b[2]&&f<b[3])return b[0];return '';};
+const altKm=v=>{const k=AMIN*Math.pow(AMAX/AMIN,v/1000),p=Math.pow(10,Math.max(0,Math.floor(Math.log10(k))-1));
+  return Math.round(k/p)*p;};  // log scale, rounded to two significant digits (300, 1,000, 36k km)
+const altPos=km=>Math.round(1000*Math.log(km/AMIN)/Math.log(AMAX/AMIN));
+const fmtKm=k=>k>=10000?Math.round(k/1000)+'k km':k.toLocaleString('en-US')+' km';
+const snap=(a,v)=>v?(a.find(x=>x>=v)||a[a.length-1]):0;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fresh=()=>({hg:new Set(),hs:new Set(),only:new Set(),orb:new Set(),band:new Set(),mode:new Set(),
+  up:false,sun:false,win:0,peak:0,amin:0,amax:0,pin:true,q:''});
+const st=fresh(),open=new Set(),$=id=>document.getElementById(id);
+let sats=[],passes={},root=null,opts={},saveT=0;
+function query(){const o=[],l=(k,s)=>{if(s.size)o.push(k+'='+[...s].map(encodeURIComponent).join(','));};
+  l('hg',st.hg);l('hs',st.hs);l('only',st.only);l('orb',st.orb);l('band',st.band);l('mode',st.mode);
+  if(st.up)o.push('up=1');if(st.sun)o.push('sun=1');if(st.win)o.push('win='+st.win);if(st.peak)o.push('peak='+st.peak);
+  if(st.amin)o.push('amin='+st.amin);if(st.amax)o.push('amax='+st.amax);if(!st.pin)o.push('pin=0');
+  if(st.q)o.push('q='+encodeURIComponent(st.q));return o.join('&');}
+function load(s){const p=new URLSearchParams(s),set=k=>new Set((p.get(k)||'').split(',').filter(Boolean)),
+    ids=k=>new Set([...set(k)].map(Number).filter(n=>n>0)),num=k=>Math.max(0,Math.round(+p.get(k)||0));
+  Object.assign(st,{hg:set('hg'),hs:ids('hs'),only:ids('only'),orb:set('orb'),band:set('band'),mode:set('mode'),
+    up:p.get('up')==='1',sun:p.get('sun')==='1',win:snap(WIN,num('win')),peak:snap(PEAK,num('peak')),
+    amin:num('amin'),amax:num('amax'),pin:p.get('pin')!=='0',q:(p.get('q')||'').trim().toLowerCase()});}
+function save(){const s=query();
+  document.querySelectorAll('a[data-keepq]').forEach(a=>a.href=a.dataset.keepq+(s?'?'+s:''));
+  clearTimeout(saveT);saveT=setTimeout(()=>{  // debounced: browsers rate-limit replaceState
+    try{history.replaceState(history.state,'',location.pathname+(s?'?'+s:'')+location.hash);}catch(e){}
+    try{localStorage.setItem(KEY,s);}catch(e){}},300);}
+const active=()=>!!(st.hg.size||st.hs.size||st.only.size||st.orb.size||st.band.size||st.mode.size||st.up||st.sun
+  ||st.win||st.peak||st.amin||st.amax||!st.pin||st.q);
+const picked=n=>st.only.size?st.only.has(n):!st.hs.has(n);  // the per-satellite checkbox
+function match(s,now){
+  if(!picked(s.norad))return false;                         // per-satellite choices always win
+  if(st.q&&!s.name.toLowerCase().includes(st.q))return false;
+  if(st.pin&&s.focus)return true;                           // ★ focus satellites skip the rest
+  if(st.hg.has(s.group)||st.orb.size&&!st.orb.has(s.orbit))return false;
+  if((st.band.size||st.mode.size)&&!(s.tx||[]).some(([f,m])=>(!st.band.size||st.band.has(bandOf(f)))
+    &&(!st.mode.size||st.mode.has(m))))return false;        // one downlink must match band AND mode
+  if(st.amin&&s.alt_km<st.amin||st.amax&&s.alt_km>st.amax)return false;
+  const up=s.elevation>=0,p=passes[s.norad];
+  if(st.up&&!up||st.sun&&!s.sunlit)return false;
+  if(st.win&&!(up||p&&p.aos-now<=st.win*3600))return false;
+  if(st.peak){const pk=p&&p.max_elev!=null?p.max_elev:(up?s.elevation:null);if(pk==null||pk<st.peak)return false;}
+  return true;}
+function visible(){const now=Date.now()/1000;return new Set(sats.filter(s=>match(s,now)).map(s=>s.norad));}
+const chip=(k,v,label,n,on,tip)=>'<button type="button" class="sf-c'+(on?' on':'')+'" data-k="'+k+'" data-v="'+esc(v)+'"'
+  +(tip?' title="'+esc(tip)+'"':'')+'>'+esc(label)+(n!=null?'<i>'+n+'</i>':'')+'</button>';
+function render(){if(!root)return;
+  const vis=visible(),c={g:{},orb:{},band:{},mode:{}},inc=(o,k)=>{o[k]=(o[k]||0)+1;};
+  for(const s of sats){inc(c.g,s.group);inc(c.orb,s.orbit);const bs=new Set(),ms=new Set();
+    for(const [f,m] of s.tx||[]){bs.add(bandOf(f));if(m)ms.add(m);}
+    bs.forEach(b=>inc(c.band,b));ms.forEach(m=>inc(c.mode,m));}
+  $('sf-n').textContent=!sats.length?'':vis.size===sats.length?sats.length+' satellites':vis.size+' of '+sats.length+' shown';
+  $('sf-reset').hidden=!active();
+  $('sf-fold').textContent=root.classList.contains('folded')?'▸':'▾';
+  const g=[];
+  for(const [k,col] of GROUPS){if(!c.g[k])continue;
+    const mem=sats.filter(s=>s.group===k).sort((a,b)=>(b.focus?1:0)-(a.focus?1:0)||a.name.localeCompare(b.name));
+    const n=mem.filter(s=>vis.has(s.norad)).length;
+    g.push('<div class="sf-g'+(st.hg.has(k)?' off':'')+'" data-g="'+k+'" title="click to hide · alt-click or only: just this group">'
+      +'<span class="sf-car" data-car="'+k+'" title="list the satellites">'+(open.has(k)?'▾':'▸')+'</span>'
+      +'<span class="sf-dot" style="background:'+col+'"></span>'+k+'<span class="sf-only" data-only-g="'+k+'">only</span>'
+      +'<span class="sf-ct">'+(n===mem.length?n:n+'/'+mem.length)+'</span></div>');
+    if(open.has(k))g.push('<div class="sf-list">'+mem.map(s=>{const on=picked(s.norad),v=vis.has(s.norad);
+      return '<div class="sf-s'+(on?'':' off')+(on&&!v?' dim':'')+'" data-n="'+s.norad+'" title="NORAD '+s.norad
+        +(on&&!v?' · hidden by the other filters':'')+'"><span>'+(on?'☑':'☐')+'</span><span class="nm">'+(s.focus?'★ ':'')
+        +esc(s.name)+'</span><span class="sf-only" data-only-n="'+s.norad+'">only</span></div>';}).join('')+'</div>');}
+  $('sf-groups').innerHTML=g.join('');
+  $('sf-orb').innerHTML=ORBITS.filter(([o])=>c.orb[o]||st.orb.has(o)).map(([o,t])=>chip('orb',o,o,c.orb[o]||0,st.orb.has(o),t)).join('');
+  $('sf-band').innerHTML=BANDS.filter(([b])=>c.band[b]||st.band.has(b)).map(([b,l,,,t])=>chip('band',b,l,c.band[b]||0,st.band.has(b),t)).join('');
+  const modes=[...new Set([...Object.keys(c.mode),...st.mode])].sort((a,b)=>(c.mode[b]||0)-(c.mode[a]||0)||a.localeCompare(b));
+  $('sf-mode').innerHTML=modes.map(m=>chip('mode',m,m,c.mode[m]||0,st.mode.has(m))).join('');
+  $('sf-vis').innerHTML=chip('up','','▲ above horizon',null,st.up,'above the observer’s horizon'+(opts.map?' at the map time':' now'))
+    +chip('sun','','☀ sunlit',null,st.sun,'in sunlight, so visible to the eye from a dark sky');
+  const a=$('sf-amin'),b=$('sf-amax');
+  if(document.activeElement!==a)a.value=st.amin?altPos(st.amin):0;
+  if(document.activeElement!==b)b.value=st.amax?altPos(st.amax):1000;
+  $('sf-altl').textContent=(st.amin?fmtKm(st.amin):'0 km')+' – '+(st.amax?fmtKm(st.amax):'all');
+  $('sf-win').value=st.win;$('sf-peak').value=st.peak;$('sf-pin').checked=st.pin;
+  const q=$('sf-q');if(q&&document.activeElement!==q)q.value=st.q;}
+function changed(){save();render();if(opts.onchange)opts.onchange();}
+function soloGroup(g){const others=[...new Set(sats.map(s=>s.group))].filter(x=>x!==g);
+  const already=!st.hg.has(g)&&others.length&&others.every(x=>st.hg.has(x));
+  st.hg=already?new Set():new Set(others);}
+function soloSat(n){st.only=st.only.size===1&&st.only.has(n)?new Set():new Set([n]);st.hs=new Set();}
+function toggleSat(n){const s=st.only.size?st.only:st.hs;s.has(n)?s.delete(n):s.add(n);}
+function init(el,o){root=el;opts=o||{};
+  let s=location.search.slice(1);if(!s){try{s=localStorage.getItem(KEY)||'';}catch(e){}}
+  load(s);root.classList.add('sf');
+  root.innerHTML='<div class="sf-head"><b data-fold title="fold / unfold">filters</b><span class="sf-n" id="sf-n"></span>'
+    +(opts.search?'<input id="sf-q" class="sf-q" type="text" placeholder="search satellite…" autocomplete="off">':'')
+    +'<a id="sf-reset" class="sf-reset" hidden>reset</a><span class="sf-fold" id="sf-fold" data-fold></span></div>'
+    +'<div class="sf-body">'
+    +'<div class="sf-sec"><div class="sf-t">groups · ▸ lists satellites</div><div id="sf-groups"></div></div>'
+    +'<div class="sf-sec"><div class="sf-t">orbit</div><div class="sf-chips" id="sf-orb"></div>'
+    +'<div class="sf-t" style="margin-top:9px">altitude</div><div class="sf-alt">'
+    +'<span>from</span><input type="range" id="sf-amin" min="0" max="1000" value="0">'
+    +'<span>to</span><input type="range" id="sf-amax" min="0" max="1000" value="1000">'
+    +'<span></span><span class="sf-altv" id="sf-altl"></span></div></div>'
+    +'<div class="sf-sec"><div class="sf-t" title="from the active SatNOGS downlinks">radio band</div><div class="sf-chips" id="sf-band"></div>'
+    +'<div class="sf-t" style="margin-top:9px">mode</div><div class="sf-chips" id="sf-mode"></div></div>'
+    +'<div class="sf-sec"><div class="sf-t">visibility</div><div class="sf-chips" id="sf-vis"></div><div class="sf-sel">'
+    +'<label>pass within <select id="sf-win">'+WIN.map(h=>'<option value="'+h+'">'+(h?h+' h':'any')+'</option>').join('')+'</select></label>'
+    +'<label>peak ≥ <select id="sf-peak">'+PEAK.map(d=>'<option value="'+d+'">'+(d?d+'°':'any')+'</option>').join('')+'</select></label></div>'
+    +'<label class="sf-pin"><input type="checkbox" id="sf-pin"> ★ always show focus satellites</label></div></div>';
+  let f=null;try{f=localStorage.getItem(KEY+'.fold'+location.pathname);}catch(e){}
+  if(f==='1'||(f==null&&opts.map&&innerWidth<700))root.classList.add('folded');
+  root.addEventListener('click',e=>{
+    const t=e.target.closest('#sf-reset,[data-fold],[data-only-g],[data-only-n],[data-car],[data-n],[data-g],[data-k]');
+    if(!t||!root.contains(t))return;const d=t.dataset;
+    if(t.id==='sf-reset')Object.assign(st,fresh());
+    else if(d.fold!=null){const on=root.classList.toggle('folded');
+      try{localStorage.setItem(KEY+'.fold'+location.pathname,on?'1':'0');}catch(err){}return render();}
+    else if(d.car!=null){open.has(d.car)?open.delete(d.car):open.add(d.car);return render();}
+    else if(d.onlyG!=null)soloGroup(d.onlyG);
+    else if(d.onlyN!=null)soloSat(+d.onlyN);
+    else if(d.n!=null){if(e.altKey)soloSat(+d.n);else toggleSat(+d.n);}
+    else if(d.g!=null){if(e.altKey)soloGroup(d.g);else if(st.hg.has(d.g))st.hg.delete(d.g);else st.hg.add(d.g);}
+    else if(d.k==='up'||d.k==='sun')st[d.k]=!st[d.k];
+    else{const set=st[d.k];if(set.has(d.v))set.delete(d.v);else set.add(d.v);}
+    changed();});
+  $('sf-amin').addEventListener('input',e=>{const v=+e.target.value;st.amin=v<=0?0:altKm(v);
+    if(st.amax&&st.amin>st.amax)st.amax=st.amin;changed();});
+  $('sf-amax').addEventListener('input',e=>{const v=+e.target.value;st.amax=v>=1000?0:altKm(v);
+    if(st.amax&&st.amin>st.amax)st.amin=st.amax;changed();});
+  $('sf-win').addEventListener('change',e=>{st.win=+e.target.value;changed();});
+  $('sf-peak').addEventListener('change',e=>{st.peak=+e.target.value;changed();});
+  $('sf-pin').addEventListener('change',e=>{st.pin=e.target.checked;changed();});
+  const q=$('sf-q');if(q)q.addEventListener('input',()=>{st.q=q.value.trim().toLowerCase();changed();});
+  save();render();}
+return {GROUPS,BANDS,bandOf,init,visible,state:()=>st,
+  setSats(s){sats=s||[];render();},
+  setPasses(p){passes={};for(const x of p||[])passes[x.norad]=x;render();},
+  setQuery(v){st.q=(v||'').trim().toLowerCase();changed();}};
+})();
+"""
+
 _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>space-telemetry · map</title>
@@ -123,12 +325,7 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
     padding:5px 9px;font:13px system-ui;width:200px;outline:none}
   #ctrl label{display:flex;gap:5px;align-items:center;cursor:pointer;user-select:none;opacity:.9}
   #hud{top:10px;right:52px;opacity:.85}
-  #legend{bottom:22px;left:10px;line-height:1.9;min-width:152px}
-  #legend b{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.04em}
-  #legend .row{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
-  #legend .row.off{opacity:.38}
-  #legend .dot{width:11px;height:11px;border-radius:50%;flex:none}
-  #legend .ct{opacity:.55;margin-left:auto;padding-left:12px}
+  #filters{top:58px;left:10px;width:252px;max-height:calc(100vh - 150px);overflow:auto}
   #passes{bottom:22px;right:10px;max-height:48vh;overflow:auto;min-width:214px;max-width:264px;line-height:1.5}
   #passes b{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px}
   #passes .prow{display:flex;align-items:center;gap:7px;padding:1px 0;cursor:pointer}
@@ -139,15 +336,13 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   #passes .pe{opacity:.55;width:32px;text-align:right;font-variant-numeric:tabular-nums}
   #passes .now{color:#33d17a;font-weight:600}
   #passes .fx{color:#ffd400;font-weight:600}
-  #altctrl{top:50%;left:10px;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:9px;padding:12px 9px}
-  #altctrl input[type=range]{writing-mode:vertical-lr;direction:rtl;width:9px;height:180px;accent-color:#3b82f6;cursor:pointer}
-  #altctrl .lbl{font-size:11px;opacity:.7;white-space:nowrap;letter-spacing:.02em}
   #timectrl{bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:11px;padding:8px 14px}
   #timectrl input[type=range]{width:min(52vw,540px);accent-color:#c026d3;cursor:pointer}
   #timectrl .tl{font-variant-numeric:tabular-nums;min-width:56px;text-align:center;font-weight:600}
   #timectrl button{background:#fff2;border:1px solid #fff3;color:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;font:12px system-ui}
   #timectrl button:hover{background:#fff3}
   .maplibregl-popup-content{font:13px system-ui;padding:8px 12px;color:#111}
+/*SF_CSS*/
 </style></head><body>
 <div id="map"></div>
 <div id="ctrl" class="panel">
@@ -156,24 +351,20 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   <label><input type="checkbox" id="foot" checked> footprints</label>
   <label><input type="checkbox" id="globe"> globe</label>
 </div>
-<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span> · <a href="/table" style="color:#8ab4ff;text-decoration:none">▦ table</a></div>
-<div id="legend" class="panel"></div>
+<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span> · <a href="/table" data-keepq="/table" style="color:#8ab4ff;text-decoration:none">▦ table</a></div>
+<div id="filters" class="panel"></div>
 <div id="passes" class="panel"></div>
-<div id="altctrl" class="panel">
-  <span class="lbl" id="altlbl">all</span>
-  <input id="alt" type="range" min="0" max="1000" value="1000">
-  <span class="lbl">alt max</span>
-</div>
 <div id="timectrl" class="panel">
   <span class="tl" id="timelbl">now</span>
   <input id="time" type="range" min="-1440" max="1440" value="0" step="5">
   <button id="timenow">now</button>
 </div>
 <script>
-const GROUPS=[['iss','#e02b2b'],['css','#ff8f1f'],['weather','#3b82f6'],['noaa','#22c55e'],['goes','#a855f7'],['stations','#9aa0aa'],['other','#cbd5e1']];
+//SF_JS
+const GROUPS=SF.GROUPS;
 const colorExpr=['match',['get','group']]; for(const [g,c] of GROUPS) colorExpr.push(g,c); colorExpr.push('#888');
 const isFocus=['==',['get','focus'],1], byFocus=(a,b)=>['case',isFocus,a,b];
-const hidden=new Set(); let lastSats=[],maxAlt=40000,timeOffset=0; const $=id=>document.getElementById(id);
+let lastSats=[],lastPasses=[],timeOffset=0; const $=id=>document.getElementById(id);
 const fmtOffset=m=>{if(!m)return'now';const s=m<0?'−':'+';m=Math.abs(m);if(m>=1440)return s+(m/1440).toFixed(m%1440?1:0)+'d';const h=(m/60)|0,mm=m%60;return s+(h?h+'h ':'')+((mm||!h)?mm+'m':'');};
 const map=new maplibregl.Map({container:'map',hash:true,
   style:{version:8,glyphs:'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
@@ -183,7 +374,7 @@ const map=new maplibregl.Map({container:'map',hash:true,
 map.addControl(new maplibregl.NavigationControl(),'top-right');
 function tracksFC(sats){const f=[];for(const s of sats){const tr=s.track;if(!tr||tr.length<2)continue;
   const N=tr.length-1;let seg=[[tr[0][1],tr[0][0]]];let segStart=0;
-  const push=st=>f.push({type:'Feature',properties:{group:s.group,name:s.name,alt:s.alt,t:st/N,focus:s.focus?1:0},geometry:{type:'LineString',coordinates:seg}});
+  const push=st=>f.push({type:'Feature',properties:{norad:s.norad,group:s.group,name:s.name,alt:s.alt,t:st/N,focus:s.focus?1:0},geometry:{type:'LineString',coordinates:seg}});
   for(let i=1;i<tr.length;i++){const lat=tr[i][0],lon=tr[i][1],plat=tr[i-1][0],plon=tr[i-1][1];
     if(Math.abs(lon-plon)>180){const east=lon<plon;const dl=east?(lon+360-plon):(lon-360-plon);
       const ef=east?180:-180,et=east?-180:180;const il=plat+(lat-plat)*((ef-plon)/dl);
@@ -193,7 +384,7 @@ function tracksFC(sats){const f=[];for(const s of sats){const tr=s.track;if(!tr|
   return {type:'FeatureCollection',features:f};}
 function obsFC(obs){return {type:'FeatureCollection',features:(obs||[]).map(o=>({type:'Feature',properties:{name:o.name},geometry:{type:'Point',coordinates:[o.lon,o.lat]}}))};}
 function pointsFC(sats){return {type:'FeatureCollection',features:sats.map(s=>({type:'Feature',
-  properties:{name:s.name,group:s.group,alt:s.alt_km,el:s.elevation,sunlit:s.sunlit?1:0,fp:s.footprint_km,up:(s.elevation>=0?1:0),focus:s.focus?1:0},
+  properties:{norad:s.norad,name:s.name,group:s.group,alt:s.alt_km,el:s.elevation,sunlit:s.sunlit?1:0,fp:s.footprint_km,up:(s.elevation>=0?1:0),focus:s.focus?1:0},
   geometry:{type:'Point',coordinates:[s.lon,s.lat]}}))};}
 function circlePoly(lat,lon,km,n){n=n||48;const R=6371,d=km/R,la=lat*Math.PI/180,lo=lon*Math.PI/180,c=[];
   for(let i=0;i<=n;i++){const b=2*Math.PI*i/n;
@@ -202,33 +393,31 @@ function circlePoly(lat,lon,km,n){n=n||48;const R=6371,d=km/R,la=lat*Math.PI/180
     c.push([o2*180/Math.PI,l2*180/Math.PI]);}
   return c;}
 function footprintsFC(sats){const f=[];for(const s of sats){if(s.footprint_km==null)continue;
-  f.push({type:'Feature',properties:{group:s.group,name:s.name,alt:s.alt_km,up:(s.elevation>=0?1:0),focus:s.focus?1:0},
+  f.push({type:'Feature',properties:{norad:s.norad,group:s.group,name:s.name,alt:s.alt_km,up:(s.elevation>=0?1:0),focus:s.focus?1:0},
     geometry:{type:'Polygon',coordinates:[circlePoly(s.lat,s.lon,s.footprint_km)]}});}
   return {type:'FeatureCollection',features:f};}
-function applyFilters(){const groups=GROUPS.map(([g])=>g).filter(g=>!hidden.has(g));
-  const q=$('search').value.trim().toLowerCase();
-  const conds=[['any',isFocus,['in',['get','group'],['literal',groups]]]];  // hiding a group never hides a focus sat
-  if(q)conds.push(['in',q,['downcase',['get','name']]]);
-  if(maxAlt<40000)conds.push(['<=',['coalesce',['get','alt'],0],maxAlt]);
-  const flt=conds.length>1?['all'].concat(conds):conds[0];
-  for(const l of ['sat-dots','sat-labels','tracks','footprint-fill','footprint-line']) if(map.getLayer(l)) map.setFilter(l,flt);}
+function applyFilters(){const vis=SF.visible(),flt=['in',['get','norad'],['literal',[...vis]]];  // one NORAD set drives every layer
+  for(const l of ['sat-dots','sat-labels','tracks','footprint-fill','footprint-line']) if(map.getLayer(l)) map.setFilter(l,flt);
+  $('count').textContent=(vis.size===lastSats.length?'':vis.size+'/')+lastSats.length;
+  if($('search').value.trim().toLowerCase()!==SF.state().q)$('search').value=SF.state().q;  // after a reset
+  renderPasses(vis);}
+SF.init($('filters'),{map:true,onchange:applyFilters});
+$('search').value=SF.state().q;
 let last=0;
 async function refresh(){try{const u='/api/satellites.json'+(timeOffset?('?t='+timeOffset):'');const d=await (await fetch(u)).json();lastSats=d.satellites||[];
   map.getSource('sats').setData(pointsFC(lastSats));
   map.getSource('footprints').setData(footprintsFC(lastSats));
   map.getSource('obs').setData(obsFC(d.observers));
-  $('count').textContent=lastSats.length;last=Date.now();
-  const cnt={};for(const s of lastSats)cnt[s.group]=(cnt[s.group]||0)+1;
-  $('legend').innerHTML='<b>groups · click to hide</b>'+GROUPS.filter(([g])=>cnt[g]).map(([g,c])=>
-    '<div class="row'+(hidden.has(g)?' off':'')+'" data-g="'+g+'"><span class="dot" style="background:'+c+'"></span>'+g+'<span class="ct">'+cnt[g]+'</span></div>').join('');
-  $('legend').querySelectorAll('.row').forEach(r=>r.onclick=()=>{const g=r.dataset.g;hidden.has(g)?hidden.delete(g):hidden.add(g);r.classList.toggle('off');applyFilters();});
-  applyFilters();
+  last=Date.now();SF.setSats(lastSats);applyFilters();
 }catch(e){console.error(e);}}
 async function refreshTracks(){try{const d=await(await fetch('/api/tracks.json')).json();
   map.getSource('tracks').setData(tracksFC(d.tracks||[]));applyFilters();
 }catch(e){console.error('tracks',e);}}
-async function refreshPasses(){try{const d=await(await fetch('/api/passes.json')).json();const now=Date.now()/1000;
-  const ps=(d.passes||[]).slice().sort((a,b)=>(b.focus?1:0)-(a.focus?1:0)||a.aos-b.aos);  // focus first
+async function refreshPasses(){try{const d=await(await fetch('/api/passes.json')).json();
+  lastPasses=d.passes||[];SF.setPasses(lastPasses);applyFilters();
+}catch(e){console.error('passes',e);}}
+function renderPasses(vis){const now=Date.now()/1000;
+  const ps=lastPasses.filter(p=>vis.has(p.norad)).sort((a,b)=>(b.focus?1:0)-(a.focus?1:0)||a.aos-b.aos);  // focus first
   const rows=ps.slice(0,16).map(p=>{const mins=Math.round((p.aos-now)/60);
     const when=p.up_now?'<span class="now">● now</span>':(mins<1?'in <1m':(mins<90?'in '+mins+'m':'in '+(mins/60).toFixed(1)+'h'));
     const col=(GROUPS.find(g=>g[0]===p.group)||[])[1]||'#888';
@@ -236,18 +425,15 @@ async function refreshPasses(){try{const d=await(await fetch('/api/passes.json')
     return '<div class="prow" data-norad="'+p.norad+'" title="'+tip+'"><span class="dot" style="background:'+col+'"></span>'
       +'<span class="pn'+(p.focus?' fx':'')+'">'+(p.focus?'★ ':'')+p.name+'</span><span class="pw">'+when+'</span>'
       +'<span class="pe">'+(p.max_elev!=null?Math.round(p.max_elev)+'°':'')+'</span></div>';}).join('');
-  $('passes').innerHTML='<b>next passes over observer</b>'+(rows||'<span style="opacity:.5">none in next 24 h</span>');
+  $('passes').innerHTML='<b>next passes over observer</b>'+(rows||'<span style="opacity:.5">'+(lastPasses.length?'none match the filters':'none in next 24 h')+'</span>');
   $('passes').querySelectorAll('.prow').forEach(r=>r.onclick=()=>{const s=lastSats.find(x=>x.norad==r.dataset.norad);
-    if(s)map.flyTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),3)});});
-}catch(e){console.error('passes',e);}}
+    if(s)map.flyTo({center:[s.lon,s.lat],zoom:Math.max(map.getZoom(),3)});});}
 setInterval(()=>{if(last)$('ago').textContent=Math.round((Date.now()-last)/1000)+'s ago';},1000);
-$('search').addEventListener('input',()=>{applyFilters();const q=$('search').value.trim().toLowerCase();
+$('search').addEventListener('input',()=>{SF.setQuery($('search').value);const q=SF.state().q;
   if(q){const m=lastSats.find(s=>s.name.toLowerCase().includes(q));if(m)map.flyTo({center:[m.lon,m.lat],zoom:Math.max(map.getZoom(),3)});}});
 $('lbl').addEventListener('change',()=>map.setLayoutProperty('sat-labels','visibility',$('lbl').checked?'visible':'none'));
 $('globe').addEventListener('change',()=>map.setProjection({type:$('globe').checked?'globe':'mercator'}));
 $('foot').addEventListener('change',()=>{const v=$('foot').checked?'visible':'none';['footprint-fill','footprint-line'].forEach(l=>map.getLayer(l)&&map.setLayoutProperty(l,'visibility',v));});
-$('alt').addEventListener('input',()=>{const v=+$('alt').value;maxAlt=v>=1000?40000:Math.round(300*Math.pow(40000/300,v/1000));
-  $('altlbl').textContent=v>=1000?'all':maxAlt+'km';applyFilters();});
 let tThr=0;
 $('time').addEventListener('input',()=>{timeOffset=+$('time').value;$('timelbl').textContent=fmtOffset(timeOffset);
   const n=Date.now();if(n-tThr>250){tThr=n;refresh();}});
@@ -301,9 +487,10 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
   .up{color:#4ade80}.down{opacity:.45}
   .star{color:#facc15}.good{color:#facc15;font-weight:600}tr.low td{opacity:.5}
+/*SF_CSS*/
 </style></head><body>
 <header><h1>space-telemetry</h1>
-  <nav><a href="/map">map</a><a href="/table" class="on">tables</a><a href="/status">status</a><a href="/metrics">metrics</a></nav>
+  <nav><a href="/map" data-keepq="/map">map</a><a href="/table" class="on">tables</a><a href="/status">status</a><a href="/metrics">metrics</a></nav>
 </header>
 <div class="wrap">
   <div id="focus" style="display:none">
@@ -312,6 +499,7 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   </div>
   <h2>Solar-system bodies <span id="bc"></span></h2>
   <div class="ov"><table><thead><tr><th>Body</th><th class="num">Alt</th><th class="num">Az</th><th class="num">Distance</th><th>Rise / set</th><th>Moon</th></tr></thead><tbody id="btb"></tbody></table></div>
+  <div id="filters" class="sf-table"></div>
   <h2>Satellites over observer <span id="sc"></span><span class="ago" id="ago"></span></h2>
   <div class="ov"><table><thead><tr><th>Satellite</th><th>Group</th><th class="num">Alt km</th><th class="num">El</th><th class="num">Footprint</th><th>Sub-point</th><th>Next pass</th><th>Sun</th></tr></thead><tbody id="stb"></tbody></table></div>
   <h2>Upcoming passes over observer <span id="pc"></span></h2>
@@ -320,7 +508,8 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   <div class="ov"><table><thead><tr><th>Star</th><th class="num">Mag</th><th class="num">Alt</th><th class="num">Az</th><th>Con</th><th class="num">Distance</th><th>Rise / set</th><th>Spectral</th></tr></thead><tbody id="ttb"></tbody></table></div>
 </div>
 <script>
-const GC={iss:'#e02b2b',css:'#ff8f1f',weather:'#3b82f6',noaa:'#22c55e',goes:'#a855f7',stations:'#9aa0aa',other:'#cbd5e1'};
+//SF_JS
+const GC=Object.fromEntries(SF.GROUPS);
 const STAR='<span class="star">★</span> ';
 const dir=a=>['N','NE','E','SE','S','SW','W','NW'][Math.round((((a%360)+360)%360)/45)%8];
 const $=id=>document.getElementById(id);
@@ -336,25 +525,30 @@ async function bodies(){try{const b=(await(await fetch('/api/bodies.json')).json
       +'<td>'+(x.up?'sets '+hm(x['set']):'rises '+hm(x.rise))+'</td><td>'+moon+'</td></tr>';}).join('')
       ||'<tr><td colspan=6 style="opacity:.5">none enabled</td></tr>';
 }catch(e){console.error(e);}}
-async function sats(){try{const[sd,pd]=await Promise.all([fetch('/api/satellites.json').then(r=>r.json()),fetch('/api/passes.json').then(r=>r.json())]);
-  const s=sd.satellites||[];const pm={};(pd.passes||[]).forEach(p=>pm[p.norad]=p);
+let sd=null,pd=null;  // last satellites + passes payloads, redrawn on every filter change
+async function sats(){try{[sd,pd]=await Promise.all([fetch('/api/satellites.json').then(r=>r.json()),fetch('/api/passes.json').then(r=>r.json())]);
+  $('ago').textContent='updated '+new Date().toLocaleTimeString();
+  SF.setSats(sd.satellites||[]);SF.setPasses(pd.passes||[]);drawSats();
+}catch(e){console.error(e);}}
+function drawSats(){if(!sd||!pd)return;const vis=SF.visible(),all=sd.satellites||[];
+  const s=all.filter(x=>vis.has(x.norad));const pm={};(pd.passes||[]).forEach(p=>pm[p.norad]=p);
   s.sort((a,b)=>(b.focus?1:0)-(a.focus?1:0)||b.elevation-a.elevation);  // focus sats pinned on top
-  $('sc').textContent='· '+s.length;$('ago').textContent='updated '+new Date().toLocaleTimeString();
+  $('sc').textContent='· '+(s.length===all.length?all.length:s.length+' of '+all.length);
   $('stb').innerHTML=s.map(x=>{const p=pm[x.norad];const up=x.elevation>=0;
     const np=p?(p.up_now?'<span class="up">now</span>':(inMin(p.aos)+(p.max_elev!=null?' · '+Math.round(p.max_elev)+'°':''))):'—';
     return '<tr><td>'+(x.focus?STAR:'')+x.name+'</td><td><span class="dot" style="background:'+(GC[x.group]||'#888')+'"></span>'+x.group+'</td>'
       +'<td class="num">'+Math.round(x.alt_km)+'</td><td class="num '+(up?'up':'down')+'">'+x.elevation.toFixed(1)+'°</td>'
       +'<td class="num">'+x.footprint_km+'</td><td>'+x.lat.toFixed(1)+', '+x.lon.toFixed(1)+'</td>'
-      +'<td>'+np+'</td><td>'+(x.sunlit?'☀':'')+'</td></tr>';}).join('');
-  const ps=pd.passes||[];
+      +'<td>'+np+'</td><td>'+(x.sunlit?'☀':'')+'</td></tr>';}).join('')
+    ||'<tr><td colspan=8 style="opacity:.5">'+(all.length?'no satellite matches the filters':'none tracked')+'</td></tr>';
+  const ps=(pd.passes||[]).filter(p=>vis.has(p.norad));
   $('pc').textContent=ps.length?'· '+ps.length:'';
   $('ptb').innerHTML=ps.map(p=>{const col=GC[p.group]||'#888';
     const aos=p.up_now?'<span class="up">now</span>':(inMin(p.aos)+' · '+hm(p.aos));
     return '<tr><td>'+(p.focus?STAR:'')+p.name+'</td><td><span class="dot" style="background:'+col+'"></span>'+p.group+'</td>'
       +'<td>'+aos+'</td><td>'+hm(p['los'])+'</td><td class="num">'+(p.duration_s?Math.round(p.duration_s/60)+' min':'')+'</td>'
       +'<td class="num">'+(p.max_elev!=null?Math.round(p.max_elev)+'°':'')+'</td><td class="num">'+p.footprint_km+' km</td></tr>';}).join('')
-    ||'<tr><td colspan=7 style="opacity:.5">none in next 24 h</td></tr>';
-}catch(e){console.error(e);}}
+    ||'<tr><td colspan=7 style="opacity:.5">'+((pd.passes||[]).length?'none match the filters':'none in next 24 h')+'</td></tr>';}
 async function focus(){try{const d=await(await fetch('/api/focus.json')).json();const f=d.focus||[];
   $('focus').style.display=f.length?'':'none';if(!f.length)return;
   const rows=[];for(const s of f)for(const p of s.passes)rows.push([s,p]);
@@ -380,8 +574,12 @@ async function stars(){try{const t=(await(await fetch('/api/stars.json')).json()
       +'<td>'+x.con+'</td><td class="num">'+(x.dist_ly!=null?x.dist_ly+' ly':'')+'</td>'
       +'<td>'+rs+'</td><td>'+(x.spect||'')+'</td></tr>';}).join('');
 }catch(e){console.error(e);}}
+SF.init($('filters'),{search:true,onchange:drawSats});
 focus();bodies();sats();stars();setInterval(focus,30000);setInterval(sats,15000);setInterval(stars,15000);setInterval(bodies,30000);
 </script></body></html>"""
+
+_MAP_HTML = _MAP_HTML.replace("/*SF_CSS*/", _FILTER_CSS).replace("//SF_JS", _FILTER_JS)
+_TABLE_HTML = _TABLE_HTML.replace("/*SF_CSS*/", _FILTER_CSS).replace("//SF_JS", _FILTER_JS)
 
 
 def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None,

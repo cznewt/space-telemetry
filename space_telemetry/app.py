@@ -116,10 +116,13 @@ def _lon_delta(a: float, b: float) -> float:
 def _visible_map_sats(p, offset_min=0.0):
     """Provider positions after collapsing ISS/CSS modules into one marker and hiding
     craft docked at a station. Returns position dicts (norad, name, group, lat, lon,
-    alt_m, elevation, sunlit, footprint_km); shared by the /map position and track feeds.
+    alt_m, elevation, sunlit, footprint_km, orbit, tx); shared by the /map position and
+    track feeds. A station marker carries the downlinks of all its modules.
     ``offset_min`` shifts the evaluation time (the /map time scrubber)."""
     raw = p.positions(offset_min)
     anchors = [(r["lat"], r["lon"]) for r in raw if r["group"] in _STATIONS]
+    station_tx = {g: sorted({tuple(x) for r in raw if r["group"] == g for x in r.get("tx", ())})
+                  for g in _STATIONS}
 
     def at_station(lat, lon):
         return any(abs(lat - alat) < _DOCKED_EPS_DEG and _lon_delta(lon, alon) < _DOCKED_EPS_DEG
@@ -133,7 +136,7 @@ def _visible_map_sats(p, offset_min=0.0):
             if g in seen_station:
                 continue
             seen_station.add(g)
-            r = {**r, "name": _STATIONS[g]}
+            r = {**r, "name": _STATIONS[g], "tx": [list(x) for x in station_tx[g]]}
         elif g == "stations" and at_station(r["lat"], r["lon"]):
             continue  # docked craft / module co-located with ISS or CSS — hide it
         out.append(r)
@@ -158,6 +161,8 @@ def _positions_fn(settings, sat_providers, observers):
             "elevation": round(r["elevation"], 1),
             "sunlit": r["sunlit"],
             "footprint_km": round(r["footprint_km"]),
+            "orbit": r["orbit"],
+            **({"tx": r["tx"]} if r["tx"] else {}),  # [[mhz, mode]] active downlinks
             **({"focus": 1} if r["norad"] in focus else {}),
         } for r in _visible_map_sats(sat_providers[0], offset_min)]
         return {"satellites": sats, "observers": obs}
@@ -175,7 +180,8 @@ def _tracks_fn(settings, sat_providers):
         p = sat_providers[0]
         tracks = p.ground_tracks()
         return {"tracks": [
-            {"name": r["name"], "group": r["group"], "alt": round(r["alt_m"] / 1000.0),
+            {"norad": r["norad"], "name": r["name"], "group": r["group"],
+             "alt": round(r["alt_m"] / 1000.0),
              "track": tracks.get(r["norad"], []),
              **({"focus": 1} if r["norad"] in focus else {})}
             for r in _visible_map_sats(p)

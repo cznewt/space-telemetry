@@ -60,8 +60,9 @@ and METEOR-M2 4). Focus satellites are:
 
 - **always tracked**, even outside `sat_groups` (fetched by catalog number);
 - **highlighted** on `/map` (larger dot with a gold ring, gold label, bold ground
-  track; hiding their group in the legend does not hide them) and pinned to the
-  top of `/table` and the map's passes panel with a ★;
+  track) and pinned to the top of `/table` and the map's passes panel with a ★.
+  The [satellite filters](../web.md#satellite-filters) skip them while
+  "★ always show focus satellites" is on (the default);
 - given a **pass plan**: every pass over the observer within
   `pass_lookahead_hours` (not just the next one), each with AOS / LOS, duration,
   peak elevation, AOS → LOS direction, and the satellite's main SatNOGS downlinks
