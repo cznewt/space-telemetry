@@ -10,7 +10,7 @@ from time import perf_counter, time
 
 from prometheus_client.core import GaugeMetricFamily
 
-from .propagate import footprint_radius_km
+from .propagate import footprint_radius_km, group_label
 
 _SAT_L = ["norad", "name", "observer", "group"]
 _TX_L = ["norad", "uuid", "mode", "status"]
@@ -104,6 +104,27 @@ class SatelliteCollector:
 
         yield from (elev, az, rng, rate, sublat, sublon, salt, vel, above, sun,
                     epoch, age, aos, los, maxel, fp, downlink, uplink, baud, doppler)
+
+        # Focus satellites: the next pass peaking at or above sat_focus_min_elevation_deg
+        # (one still under way counts until LOS). The good-pass alert keys on these.
+        good_aos = sat_gauge("satellite_focus_next_good_pass_aos_timestamp_seconds",
+                             "Focus satellite: AOS of the next pass peaking at or above the good-pass elevation (UNIX seconds).")
+        good_los = sat_gauge("satellite_focus_next_good_pass_los_timestamp_seconds",
+                             "Focus satellite: LOS of the next good pass (UNIX seconds).")
+        good_max = sat_gauge("satellite_focus_next_good_pass_max_elevation_degrees",
+                             "Focus satellite: peak elevation of the next good pass (degrees).")
+        for p in self.providers:
+            min_el = p.settings.sat_focus_min_elevation_deg
+            for sat, passes in p.focus_plan():
+                good = next((x for x in passes if x["los"] > now
+                             and x["max_elev"] is not None and x["max_elev"] >= min_el), None)
+                if good is None:
+                    continue
+                lv = [str(sat.norad_id), sat.name, p.observer.name, group_label(sat)]
+                good_aos.add_metric(lv, good["aos"])
+                good_los.add_metric(lv, good["los"])
+                good_max.add_metric(lv, good["max_elev"])
+        yield from (good_aos, good_los, good_max)
 
         # Ground track: sub-point at each time offset (observer-independent, emit once).
         track_lat = GaugeMetricFamily("satellite_track_latitude_degrees",

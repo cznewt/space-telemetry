@@ -23,6 +23,15 @@ def filename(group: str, fmt: str) -> str:
     return f"celestrak_{group}.{'json' if fmt == 'json' else 'tle'}"
 
 
+def catnr_url(norad: int, fmt: str = "tle") -> str:
+    """One satellite by NORAD catalog number, for watchlist/focus ids outside sat_groups."""
+    return f"{CELESTRAK_GP_URL}?CATNR={int(norad)}&FORMAT={fmt}"
+
+
+def catnr_filename(norad: int, fmt: str) -> str:
+    return f"celestrak_catnr_{int(norad)}.{'json' if fmt == 'json' else 'tle'}"
+
+
 def problem(raw: bytes, fmt: str) -> Optional[str]:
     """Why a GP reply is unusable, or None if it carries element sets. CelesTrak
     answers an unknown group with HTTP 200 and a one-line message such as
