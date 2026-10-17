@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     satnogs_satellites_refresh_hours: float = 168.0
     pass_lookahead_hours: float = 24.0
     sat_pass_cache_ttl_s: float = 60.0
+    # /forecast: the focus satellites' good passes over forecast_days, with NOAA's
+    # geomagnetic forecast. A day is "good" when a pass peaks at or above
+    # forecast_top_elevation_deg and Kp stays at 3 or below.
+    forecast_days: int = 30
+    forecast_top_elevation_deg: float = 60.0
     sat_track_offsets_minutes: Annotated[list[int], NoDecode] = [-60, -30, -15, -5, 0, 5, 15, 30, 60]
 
     # --- Space weather (NOAA SWPC) ---

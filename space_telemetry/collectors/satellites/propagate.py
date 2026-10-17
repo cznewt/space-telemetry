@@ -18,6 +18,7 @@ from .model import CatalogHolder, SatelliteState
 
 _C = 299_792_458.0  # speed of light, m/s
 _R_EARTH_KM = 6371.0  # mean Earth radius
+_FORECAST_TTL_S = 3600.0  # the multi-week /forecast passes are recomputed hourly
 _MU_KM3_S2 = 398_600.4418  # Earth's gravitational parameter
 
 
@@ -189,6 +190,7 @@ class SatelliteProvider:
         self._topos = observer.topos()
         self._pass_cache: dict[int, tuple[float, tuple]] = {}
         self._plan_cache: dict[int, tuple[float, object, list]] = {}
+        self._forecast_cache: dict[int, tuple[float, object, float, list]] = {}
 
     def _tracked(self, catalog):
         groups = set(self.settings.sat_groups)
@@ -222,6 +224,42 @@ class SatelliteProvider:
                 self._plan_cache[norad] = cached
             out.append((sat, cached[2]))
         return out
+
+    def forecast(self, days):
+        """``[(sat, passes)]`` for the focus satellites, in sat_focus order: every pass
+        over the next *days* (see passes_between), each with ``sun_alt``, the Sun's
+        altitude at the observer at the pass's peak. ~0.2 s per satellite for 30 days,
+        so cached per satellite for an hour, and recomputed when new elements land."""
+        catalog = self.holder.get()
+        t = self.ts.now()
+        now = monotonic()
+        out = []
+        for norad in self.settings.sat_focus:
+            sat = catalog.satellites.get(norad)
+            if sat is None:
+                continue
+            cached = self._forecast_cache.get(norad)
+            if (cached is None or cached[1] is not sat or cached[2] != days
+                    or now - cached[0] >= _FORECAST_TTL_S):
+                try:
+                    passes = passes_between(sat.earthsat, self._topos, self.ts, t, days * 24.0,
+                                            self.settings.min_elevation_deg)
+                    self._add_sun_altitude(passes)
+                except Exception:
+                    passes = []
+                cached = (now, sat, days, passes)
+                self._forecast_cache[norad] = cached
+            out.append((sat, cached[3]))
+        return out
+
+    def _add_sun_altitude(self, passes) -> None:
+        peaks = [p["tca"] if p["tca"] is not None else (p["aos"] + p["los"]) / 2.0 for p in passes]
+        if not peaks:
+            return
+        t = self.ts.utc(1970, 1, 1, 0, 0, peaks)  # every peak at once
+        alt = (self.eph["earth"] + self._topos).at(t).observe(self.eph["sun"]).apparent().altaz()[0]
+        for p, a in zip(passes, alt.degrees):
+            p["sun_alt"] = float(a)
 
     def look_angles(self, sat):
         """``(elevation_deg, azimuth_deg)`` of *sat* from this observer, now."""

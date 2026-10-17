@@ -78,6 +78,8 @@ SPACE_TELEMETRY_OBSERVERS='[{"name":"prague","latitude_deg":50.07,"longitude_deg
 | `satnogs_satellites_refresh_hours` | `168` | SatNOGS metadata cadence |
 | `pass_lookahead_hours` | `24` | next-pass search window |
 | `sat_pass_cache_ttl_s` | `60` | how long per-satellite pass results are reused |
+| `forecast_days` | `30` | days covered by [`/forecast`](web.md#forecast) (1–60); its passes are recomputed hourly |
+| `forecast_top_elevation_deg` | `60` | a focus pass at least this high makes a `/forecast` day *good* (when Kp stays at 3 or below) |
 
 ### Space weather
 | Field | Default | Notes |

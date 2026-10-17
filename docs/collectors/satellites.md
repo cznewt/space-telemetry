@@ -77,6 +77,9 @@ A pass that peaks at or above `sat_focus_min_elevation_deg` (default 30°) is a
 before its AOS. The search window and pass mask are `pass_lookahead_hours` and
 `min_elevation_deg`; the plan is cached for `sat_pass_cache_ttl_s`.
 
+[`/forecast`](../web.md#forecast) extends this to `forecast_days` (30): the good
+passes of every day, rated together with NOAA's geomagnetic forecast.
+
 ## Signals
 
 Every metric this collector emits (rendered from `signals.yaml`). The `source`

@@ -100,11 +100,13 @@ def _render_html(info: dict) -> str:
         "<h2>Endpoints</h2><ul>"
         '<li><a href="/map">/map</a> — live satellite map (MapLibre GL + OpenStreetMap)</li>'
         '<li><a href="/table">/table</a> — focus pass plan, satellites, passes, bodies, stars</li>'
+        '<li><a href="/forecast">/forecast</a> — day-by-day outlook: focus passes + NOAA geomagnetic forecast</li>'
         '<li><a href="/metrics">/metrics</a> — Prometheus metrics</li>'
         '<li><a href="/status">/status</a> — status as JSON</li>'
         '<li><a href="/health">/health</a> — health check (alias <code>/healthz</code>)</li>'
         '<li><a href="/api/satellites.json">/api/satellites.json</a> — live positions + ground tracks</li>'
         '<li><a href="/api/focus.json">/api/focus.json</a> — focus satellites: every pass in the lookahead window</li>'
+        '<li><a href="/api/forecast.json">/api/forecast.json</a> — the /forecast data: good passes + NOAA Kp per day</li>'
         "</ul></body></html>"
     )
 
@@ -325,6 +327,7 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
     padding:5px 9px;font:13px system-ui;width:200px;outline:none}
   #ctrl label{display:flex;gap:5px;align-items:center;cursor:pointer;user-select:none;opacity:.9}
   #hud{top:10px;right:52px;opacity:.85}
+  @media (max-width:700px){#hud .fc{display:none}}  /* the top bar is already crowded on phones */
   #filters{top:58px;left:10px;width:252px;max-height:calc(100vh - 150px);overflow:auto}
   #passes{bottom:22px;right:10px;max-height:48vh;overflow:auto;min-width:214px;max-width:264px;line-height:1.5}
   #passes b{font-size:11px;opacity:.55;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px}
@@ -351,7 +354,7 @@ _MAP_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   <label><input type="checkbox" id="foot" checked> footprints</label>
   <label><input type="checkbox" id="globe"> globe</label>
 </div>
-<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span> · <a href="/table" data-keepq="/table" style="color:#8ab4ff;text-decoration:none">▦ table</a></div>
+<div id="hud" class="panel"><b id="count">…</b> sat · <span id="ago"></span> · <a href="/table" data-keepq="/table" style="color:#8ab4ff;text-decoration:none">▦ table</a><span class="fc"> · <a href="/forecast" style="color:#8ab4ff;text-decoration:none">forecast</a></span></div>
 <div id="filters" class="panel"></div>
 <div id="passes" class="panel"></div>
 <div id="timectrl" class="panel">
@@ -471,7 +474,7 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
   body{margin:0;background:#0d0d12;color:#e8e8ee;font:14px system-ui,-apple-system,sans-serif}
   header{position:sticky;top:0;background:#14141c;padding:12px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #ffffff14;z-index:2}
   header h1{font-size:15px;margin:0;font-weight:600}
-  header nav{display:flex;gap:14px;margin-left:auto}
+  header nav{display:flex;gap:4px 14px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
   header a{color:#8ab4ff;text-decoration:none}
   header a:hover{text-decoration:underline}
   header a.on{color:#e8e8ee;font-weight:600}
@@ -490,7 +493,7 @@ _TABLE_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 /*SF_CSS*/
 </style></head><body>
 <header><h1>space-telemetry</h1>
-  <nav><a href="/map" data-keepq="/map">map</a><a href="/table" class="on">tables</a><a href="/status">status</a><a href="/metrics">metrics</a></nav>
+  <nav><a href="/map" data-keepq="/map">map</a><a href="/table" class="on">tables</a><a href="/forecast">forecast</a><a href="/status">status</a><a href="/metrics">metrics</a></nav>
 </header>
 <div class="wrap">
   <div id="focus" style="display:none">
@@ -582,8 +585,143 @@ _MAP_HTML = _MAP_HTML.replace("/*SF_CSS*/", _FILTER_CSS).replace("//SF_JS", _FIL
 _TABLE_HTML = _TABLE_HTML.replace("/*SF_CSS*/", _FILTER_CSS).replace("//SF_JS", _FILTER_JS)
 
 
+# Day-by-day outlook for the focus satellites: their good passes plus NOAA's geomagnetic
+# forecast, grouped by the viewer's local day and rated good / fair / poor.
+_FORECAST_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>space-telemetry · forecast</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0d0d12;color:#e8e8ee;font:14px system-ui,-apple-system,sans-serif}
+  header{position:sticky;top:0;background:#14141c;padding:12px 20px;display:flex;align-items:center;gap:16px;border-bottom:1px solid #ffffff14;z-index:2}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  header nav{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}
+  a{color:#8ab4ff;text-decoration:none}
+  a:hover{text-decoration:underline}
+  header a.on{color:#e8e8ee;font-weight:600}
+  .wrap{padding:6px 20px 40px;max-width:1180px;margin:0 auto}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;opacity:.55;margin:26px 0 8px;display:flex;gap:4px 10px;align-items:baseline;flex-wrap:wrap}
+  h2 .ago{margin-left:auto;font-weight:400;opacity:.85;text-transform:none;letter-spacing:0}
+  .lead{margin:4px 0 14px;line-height:1.55}
+  .bar{display:flex;gap:10px 18px;align-items:center;flex-wrap:wrap;margin:0 0 12px;font-size:13px}
+  .bar label{cursor:pointer}
+  .chip{display:inline-block;min-width:34px;text-align:center;padding:1px 8px;border-radius:9px;font-size:12px;font-weight:600}
+  .chip.good{background:#22c55e;color:#03140a}.chip.fair{background:#eab308;color:#1a1300}.chip.poor{background:#ef4444;color:#fff}
+  .key .chip{margin-right:6px}
+  .cal{display:grid;grid-template-columns:repeat(7,46px);gap:4px;margin:0 0 16px}
+  .cal .wd{font-size:10px;opacity:.5;text-align:center;text-transform:uppercase;letter-spacing:.04em}
+  .cal a{padding:3px 0 4px;text-align:center;border-radius:6px;color:#e8e8ee;font-size:14px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums}
+  .cal a small{display:block;font-size:10px;font-weight:400;opacity:.75}
+  .cal a:hover{text-decoration:none;outline:1px solid #ffffff55}
+  .cal a.today{box-shadow:inset 0 0 0 1px #e8e8eecc}
+  .cal .good{background:#22c55e55}.cal .fair{background:#eab30848}.cal .poor{background:#ef444440}
+  .day{display:grid;grid-template-columns:112px 52px 1fr 250px;gap:4px 14px;padding:8px 10px;border-bottom:1px solid #ffffff0e;align-items:baseline;scroll-margin-top:64px}
+  .day:target{background:#8ab4ff14}
+  .dn{font-weight:600;white-space:nowrap}
+  .ps{display:flex;flex-direction:column;gap:2px}
+  .p{font-variant-numeric:tabular-nums}
+  .p .t{display:inline-block;min-width:8.6em}.p b{display:inline-block;min-width:7.4em}
+  .p .el{display:inline-block;min-width:2.2em;text-align:right;margin-right:.3em;font-weight:600}
+  .p.top .el,.p.top b{color:#facc15}
+  .sw{font-variant-numeric:tabular-nums}
+  .sw small{display:block;font-size:12px;opacity:.55}
+  .dim{opacity:.55}
+  .quiet{color:#4ade80}.active{color:#facc15}.storm{color:#f87171}
+  .note{opacity:.6;font-size:12px;line-height:1.55;margin-top:22px}
+  @media (max-width:700px){.wrap{padding:6px 16px 40px}header{padding:12px 16px}
+    .day{grid-template-columns:auto 1fr}.ps,.sw{grid-column:1/-1}.p .t,.p b{min-width:0}}
+</style></head><body>
+<header><h1>space-telemetry</h1>
+  <nav><a href="/map">map</a><a href="/table">tables</a><a href="/forecast" class="on">forecast</a><a href="/status">status</a><a href="/metrics">metrics</a></nav>
+</header>
+<div class="wrap">
+  <h2>Forecast <span id="span"></span><span class="ago" id="meta"></span></h2>
+  <p class="lead" id="lead">loading…</p>
+  <div class="bar"><label><input type="checkbox" id="dayonly"> ☀ daylight passes only</label>
+    <span class="key"><span class="chip good">good</span><span class="chip fair">fair</span><span class="chip poor">poor</span></span></div>
+  <div class="cal" id="cal"></div>
+  <div id="days"></div>
+  <p class="note" id="note"></p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const LV=['poor','fair','good'];
+const KP={kp_forecast:'3-day forecast',outlook_27d:'27-day outlook'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dir=a=>['N','NE','E','SE','S','SW','W','NW'][Math.round((((a%360)+360)%360)/45)%8];
+const hm=ts=>new Date(ts*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+const pad=n=>String(n).padStart(2,'0');
+const dkey=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());  // the viewer's local day
+const dname=(k,o)=>new Date(k+'T12:00:00').toLocaleDateString([],o||{weekday:'short',day:'numeric',month:'short'});
+const kpt=k=>{const r=Math.round(k*3)/3,n=Math.round(r);return n+(r-n>.1?'+':r-n<-.1?'-':'');};  // NOAA thirds: 2.67 → 3-
+let D=null;
+try{$('dayonly').checked=new URLSearchParams(location.search).get('day')==='1';}catch(e){}
+$('dayonly').addEventListener('change',()=>{const u=new URL(location.href);
+  if($('dayonly').checked)u.searchParams.set('day','1');else u.searchParams.delete('day');
+  try{history.replaceState(null,'',u);}catch(e){}draw();});
+// A day's rating is the lower of its best pass (top / good / none) and its geomagnetic
+// outlook (quiet / active / storm); a day past NOAA's outlook is rated on passes alone.
+function rate(ps,sw){const best=ps.reduce((b,p)=>!b||p.max_elev>b.max_elev?p:b,null);
+  const pl=!D.satellites.length?2:best?(best.max_elev>=D.top_elevation?2:1):0;
+  const kl=!sw||sw.level==='quiet'?2:sw.level==='active'?1:0;const why=[];
+  if(D.satellites.length&&!best)why.push('no pass reaches '+D.good_elevation+'°');
+  else if(pl<2)why.push('best pass '+Math.round(best.max_elev)+'°');
+  if(kl<2)why.push((sw.level==='active'?'geomagnetically active':'geomagnetic '+sw.level)+' (Kp '+kpt(sw.kp)+')');
+  return {lv:Math.min(pl,kl),best,why};}
+function swText(sw){if(!sw)return '<span class="dim">no NOAA outlook yet</span>';
+  const c=sw.level==='quiet'?'quiet':sw.level==='active'?'active':'storm';
+  return '<span class="'+c+'" title="largest planetary K index of the day (0–9)">Kp '+kpt(sw.kp)+' · '+sw.level+'</span><small>'
+    +[sw.ap!=null?'<span title="daily planetary A index">A '+sw.ap+'</span>':'',
+      sw.f107!=null?'<span title="10.7 cm solar radio flux (sfu)">F10.7 '+sw.f107+'</span>':'',KP[sw.kp_source]||''].filter(Boolean).join(' · ')+'</small>';}
+function passText(p,sat){const dl=(sat.downlinks||[]).map(x=>x.mhz.toFixed(3)+' '+x.mode).join(', ');
+  const tip='AOS '+hm(p.aos)+' '+dir(p.aos_az)+' · peak '+Math.round(p.max_elev)+'°'+(p.tca?' at '+hm(p.tca):'')
+    +' · LOS '+hm(p.los)+' '+dir(p.los_az)+' · '+Math.round(p.duration_s/60)+' min'+(dl?' · '+dl+' MHz':'');
+  return '<div class="p'+(p.max_elev>=D.top_elevation?' top':'')+'" title="'+esc(tip)+'"><span class="t">'+hm(p.aos)+'–'+hm(p.los)
+    +'</span> <b>'+esc(sat.name)+'</b> <span class="el">'+Math.round(p.max_elev)+'°</span> '+(p.daylight?'☀':'☾')
+    +' <span class="dim">'+dir(p.aos_az)+'→'+dir(p.los_az)+'</span></div>';}
+function draw(){if(!D)return;const dayOnly=$('dayonly').checked;
+  const sats=Object.fromEntries(D.satellites.map(s=>[s.norad,s])),sw=Object.fromEntries(D.space_weather.map(x=>[x.date,x]));
+  const by={};for(const p of D.passes){if(dayOnly&&!p.daylight)continue;const k=dkey(new Date(p.aos*1000));(by[k]=by[k]||[]).push(p);}
+  const days=[],d0=new Date();d0.setHours(12,0,0,0);
+  for(let i=0;i<D.days;i++){const d=new Date(d0);d.setDate(d0.getDate()+i);const k=dkey(d),ps=by[k]||[];
+    days.push({k,ps,sw:sw[k],...rate(ps,sw[k])});}
+  const name=n=>esc((sats[n]||{name:n}).name);
+  const cnt=l=>days.filter(x=>x.lv===l).length;
+  const best=days.filter(x=>x.lv===2&&x.best).sort((a,b)=>b.best.max_elev-a.best.max_elev).slice(0,4).sort((a,b)=>a.k<b.k?-1:1);
+  $('lead').innerHTML=(!D.satellites.length?'No focus satellites configured (<code>sat_focus</code>), so days are rated on space weather alone. '
+      :best.length?'Best days: '+best.map(x=>'<a href="#d'+x.k+'">'+dname(x.k)+'</a> ('+name(x.best.norad)+' '+Math.round(x.best.max_elev)+'° at '+hm(x.best.aos)+' '+(x.best.daylight?'☀':'☾')+')').join(', ')+'. '
+      :'No good days in the next '+D.days+' days. ')
+    +'<span class="dim">'+cnt(2)+' good · '+cnt(1)+' fair · '+cnt(0)+' poor</span>';
+  const wd=[...Array(7)].map((_,i)=>'<div class="wd">'+dname('2024-01-0'+(i+1),{weekday:'short'})+'</div>').join('');  // 1 Jan 2024 was a Monday
+  $('cal').innerHTML=wd+'<div></div>'.repeat((d0.getDay()+6)%7)+days.map((x,i)=>'<a href="#d'+x.k+'" class="'+LV[x.lv]+(i?'':' today')+'" title="'
+    +esc(dname(x.k)+': '+LV[x.lv]+(x.why.length?' · '+x.why.join(', '):''))+'">'+Number(x.k.slice(8))
+    +'<small>'+(x.best?Math.round(x.best.max_elev)+'°':'—')+'</small></a>').join('');
+  $('days').innerHTML=days.map(x=>'<div class="day" id="d'+x.k+'"><div class="dn">'+dname(x.k)+'</div>'
+    +'<div><span class="chip '+LV[x.lv]+'" title="'+esc(x.why.join(', '))+'">'+LV[x.lv]+'</span></div>'
+    +'<div class="ps">'+(x.ps.length?x.ps.map(p=>passText(p,sats[p.norad]||{name:p.norad})).join('')
+      :'<span class="dim">'+(D.satellites.length?'no pass reaches '+D.good_elevation+'°'+(dayOnly?' in daylight':''):'—')+'</span>')+'</div>'
+    +'<div class="sw">'+swText(x.sw)+'</div></div>').join('');
+  if(location.hash&&!draw.jumped){draw.jumped=true;const t=document.getElementById(location.hash.slice(1));if(t)t.scrollIntoView();}}
+function meta(){const tz=(Intl.DateTimeFormat().resolvedOptions().timeZone)||'local time';
+  const age=D.satellites.length?Math.max(...D.satellites.map(s=>(D.generated-s.tle_epoch)/86400)):null;
+  $('span').textContent='· next '+D.days+' days'+(D.satellites.length?' · '+D.satellites.map(s=>s.name).join(', '):'');
+  $('meta').textContent=[D.observer||'observer','times in '+tz,age!=null?'orbit data '+age.toFixed(1)+' d old':null,
+    D.outlook_issued?'NOAA outlook of '+dname(D.outlook_issued,{day:'numeric',month:'short'}):null].filter(Boolean).join(' · ');
+  $('note').innerHTML='<b>good</b>: a pass peaks at '+D.top_elevation+'° or higher and NOAA expects a quiet geomagnetic field (Kp 3 or less). '
+    +'<b>fair</b>: the best pass peaks between '+D.good_elevation+'° and '+D.top_elevation+'°, or Kp 4 (active). '
+    +'<b>poor</b>: no pass reaches '+D.good_elevation+'°, or a geomagnetic storm (Kp 5 or more, G1 and up). '
+    +'Only passes peaking at '+D.good_elevation+'° or higher are listed; ☀ means the Sun is up at the observer at the pass peak, ☾ that it is down. '
+    +'Space weather comes from NOAA SWPC: the 3-day Kp forecast for the next days, then the weekly 27-day outlook (largest Kp, A index, 10.7 cm flux); days past the outlook are rated on passes alone. '
+    +'Pass times come from the current orbital elements; weeks ahead they can shift by a minute or so.';}
+async function load(){try{D=await(await fetch('/api/forecast.json')).json();meta();draw();}
+  catch(e){console.error(e);if(!D)$('lead').textContent='could not load /api/forecast.json';}}
+load();setInterval(load,600000);
+</script></body></html>"""
+
+
 def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=None,
-                passes_fn=None, bodies_fn=None, stars_fn=None, focus_fn=None) -> ThreadingHTTPServer:
+                passes_fn=None, bodies_fn=None, stars_fn=None, focus_fn=None,
+                forecast_fn=None) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "space-telemetry"
@@ -620,6 +758,8 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
                 self._send(200, _MAP_HTML.encode(), "text/html; charset=utf-8")
             elif path == "/table":
                 self._send(200, _TABLE_HTML.encode(), "text/html; charset=utf-8")
+            elif path == "/forecast":
+                self._send(200, _FORECAST_HTML.encode(), "text/html; charset=utf-8")
             elif path == "/api/satellites.json":
                 off = 0.0
                 if query:
@@ -637,6 +777,9 @@ def make_server(host: str, port: int, info_fn, satellites_fn=None, tracks_fn=Non
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             elif path == "/api/focus.json":
                 data = focus_fn() if focus_fn else {"focus": []}
+                self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
+            elif path == "/api/forecast.json":
+                data = forecast_fn() if forecast_fn else {"passes": [], "space_weather": []}
                 self._send(200, json.dumps(data, separators=(",", ":")).encode(), "application/json")
             elif path == "/api/bodies.json":
                 data = bodies_fn() if bodies_fn else {"bodies": []}

@@ -7,7 +7,7 @@ ground station(s) and the space weather around Earth. It runs a set of sibling
 ## Contents
 
 - **[Configuration](configuration.md)** — env vars, YAML files, precedence, multiple observers
-- **[Web UI](web.md)** — `/map` and `/table`, the satellite filters, the JSON feeds
+- **[Web UI](web.md)** — `/map`, `/table` and `/forecast`, the satellite filters, the JSON feeds
 - **[Deployment](deployment.md)** — Docker Compose, Prometheus, Grafana, OTLP, cardinality
 - **Collectors**
   - **[solar_system_bodies](collectors/solar_system_bodies.md)** — Sun, Moon, planets (ephemeris)
@@ -47,7 +47,8 @@ Prometheus pull path and the optional OTLP push path read the same snapshot.
 | `/status` | JSON status: observers, collectors, source health |
 | `/health`, `/healthz` | liveness (`{"status":"ok"}`) |
 | `/map`, `/table` | live satellite map; pass plan + tables, both with satellite filters ([Web UI](web.md)) |
-| `/api/{satellites,tracks,passes,focus,bodies,stars}.json` | the JSON feeds behind the two pages |
+| `/forecast` | day-by-day outlook: the focus satellites' good passes + NOAA's geomagnetic forecast ([Web UI](web.md#forecast)) |
+| `/api/{satellites,tracks,passes,focus,forecast,bodies,stars}.json` | the JSON feeds behind the pages |
 
 ## Run
 
