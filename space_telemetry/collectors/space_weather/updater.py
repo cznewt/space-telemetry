@@ -3,6 +3,8 @@
 A daemon thread refreshes each product when it is *due* (every
 ``space_weather_refresh_minutes``) via a conditional request, caches the raw JSON,
 and parses the latest value(s) into an in-memory snapshot that the collector reads.
+The forecast products (``source.forecasts()``) refresh at most hourly and are parsed
+into per-day values for /forecast instead of metrics.
 """
 
 from __future__ import annotations
@@ -15,6 +17,9 @@ from typing import Optional
 from ...cache import FileCache
 from ...http_util import conditional_get
 from . import source
+
+# NOAA reissues the 3-day Kp forecast a few times a day and the 27-day outlook weekly.
+_FORECAST_REFRESH_MINUTES = 60.0
 
 
 @dataclass
@@ -33,8 +38,10 @@ class SpaceWeatherUpdater:
         self.settings = settings
         self.cache = cache
         self._tick_s = tick_s
-        self._products = source.products()
+        self._products = source.products() + source.forecasts()
+        self._forecast_keys = {key for key, _url, _file, _parser in source.forecasts()}
         self._latest: dict[str, float] = {}
+        self._forecasts: dict[str, dict] = {}
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -68,7 +75,10 @@ class SpaceWeatherUpdater:
     # --- refresh ---
     def _due(self, key) -> bool:
         last = self.cache.meta_get(key).get("last_success_ts")
-        return last is None or (time() - last) >= self.settings.space_weather_refresh_minutes * 60.0
+        minutes = self.settings.space_weather_refresh_minutes
+        if key in self._forecast_keys:
+            minutes = max(minutes, _FORECAST_REFRESH_MINUTES)
+        return last is None or (time() - last) >= minutes * 60.0
 
     def _refresh_due(self) -> None:
         for key, url, filename, parser in self._products:
@@ -112,12 +122,20 @@ class SpaceWeatherUpdater:
             print(f"[space-weather-updater] {key} parse failed: {exc}", flush=True)
             return
         with self._lock:
-            self._latest.update(values)
+            if key in self._forecast_keys:
+                self._forecasts[key] = values
+            else:
+                self._latest.update(values)
 
     # --- read by the collector ---
     def latest(self) -> dict:
         with self._lock:
             return dict(self._latest)
+
+    def forecasts(self) -> dict:
+        """``{key: parsed forecast}`` for the forecast products fetched so far."""
+        with self._lock:
+            return dict(self._forecasts)
 
     def health(self) -> list:
         now = time()

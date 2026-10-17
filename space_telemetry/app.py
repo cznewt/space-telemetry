@@ -90,9 +90,9 @@ def _info_fn(settings, observers, sat_providers, sat_updater, sw_updater):
                 "satellites": satellites,
                 "space_weather": space_weather,
             },
-            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/table",
+            "endpoints": ["/metrics", "/status", "/health", "/healthz", "/map", "/table", "/forecast",
                           "/api/satellites.json", "/api/tracks.json", "/api/passes.json",
-                          "/api/focus.json", "/api/bodies.json", "/api/stars.json"],
+                          "/api/focus.json", "/api/forecast.json", "/api/bodies.json", "/api/stars.json"],
         }
 
     return info
@@ -268,6 +268,66 @@ def _focus_fn(settings, sat_providers):
     return data
 
 
+def _kp_level(kp: float) -> str:
+    """NOAA G-scale reading of a Kp value: quiet up to 3, active at 4, a storm from 5
+    (G1) up. Kp comes in thirds and each step spans its -/o/+ values, so 4.67 ("5-")
+    is already G1, while G4 runs up to 9- (8.67) and only 9o is G5."""
+    k = 9 if kp >= 9 else min(round(kp), 8)
+    return "quiet" if k <= 3 else "active" if k == 4 else f"G{k - 4} storm"
+
+
+def _forecast_fn(settings, sat_providers, sw_updater):
+    """Day-by-day outlook for /forecast and /api/forecast.json: every pass of the focus
+    satellites over forecast_days that peaks at or above sat_focus_min_elevation_deg
+    (with daylight at the observer), and NOAA's geomagnetic outlook per UTC day: the
+    largest Kp from the 3-day forecast where it reaches, then the weekly 27-day outlook,
+    which also gives the A index and 10.7 cm flux. The page groups the passes by the
+    viewer's local day and rates each day from these."""
+    def data() -> dict:
+        days = max(1, min(int(settings.forecast_days), 60))
+        now = time.time()
+        out = {"days": days, "generated": round(now),
+               "good_elevation": settings.sat_focus_min_elevation_deg,
+               "top_elevation": settings.forecast_top_elevation_deg,
+               "satellites": [], "passes": [], "space_weather": [], "outlook_issued": None}
+        if settings.sat_enabled and sat_providers and settings.sat_focus:
+            p = sat_providers[0]
+            out["observer"] = p.observer.name
+            good_el = settings.sat_focus_min_elevation_deg
+            for sat, passes in p.forecast(days):
+                out["satellites"].append({"norad": sat.norad_id, "name": sat.name, "group": group_label(sat),
+                                          "tle_epoch": round(sat.epoch_ts),
+                                          "downlinks": _downlinks(sat.transmitters)})
+                out["passes"].extend({
+                    "norad": sat.norad_id, "aos": round(x["aos"]), "los": round(x["los"]),
+                    "tca": round(x["tca"]) if x["tca"] is not None else None,
+                    "max_elev": round(x["max_elev"], 1),
+                    "aos_az": round(x["aos_az"]), "los_az": round(x["los_az"]),
+                    "duration_s": round(x["los"] - x["aos"]),
+                    "daylight": x.get("sun_alt", -90.0) > 0.0,
+                } for x in passes
+                    if x["los"] > now and x["max_elev"] is not None and x["max_elev"] >= good_el)
+            out["passes"].sort(key=lambda x: x["aos"])
+        if sw_updater is not None:
+            fc = sw_updater.forecasts()
+            short = (fc.get("kp_forecast") or {}).get("days", {})
+            outlook = fc.get("outlook_27d") or {}
+            weekly = outlook.get("days", {})
+            out["outlook_issued"] = outlook.get("issued")
+            first = time.strftime("%Y-%m-%d", time.gmtime(now))
+            last = time.strftime("%Y-%m-%d", time.gmtime(now + days * 86400.0))
+            for day in sorted(d for d in set(short) | set(weekly) if first <= d <= last):
+                near, far = short.get(day), weekly.get(day)
+                kp = (near or far)["kp"]
+                row = {"date": day, "kp": kp, "level": _kp_level(kp),
+                       "kp_source": "kp_forecast" if near else "outlook_27d"}
+                if far:
+                    row.update(ap=far["ap"], f107=far["f107"])
+                out["space_weather"].append(row)
+        return out
+    return data
+
+
 def _bodies_fn(settings, body_samplers):
     """Solar-system body positions for /api/bodies.json and the /table view: altitude,
     azimuth, distance, next rise/set, plus Moon illumination and phase."""
@@ -354,7 +414,8 @@ def run(settings: "Settings | None" = None) -> None:
                          _passes_fn(settings, sat_providers),
                          _bodies_fn(settings, body_samplers),
                          _stars_fn(settings, star_samplers),
-                         focus_fn=_focus_fn(settings, sat_providers))
+                         focus_fn=_focus_fn(settings, sat_providers),
+                         forecast_fn=_forecast_fn(settings, sat_providers, sw_updater))
     print(
         f"[space-telemetry] serving on http://{settings.host}:{settings.port}/  (metrics at /metrics)  "
         f"observers={[o.name for o in observers]} | "

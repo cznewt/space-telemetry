@@ -1,8 +1,9 @@
 # Web UI
 
-Next to `/metrics` the exporter serves two pages: `/map`, a live satellite map,
-and `/table`, the focus pass plan plus tables of satellites, passes, bodies and
-stars. Both are plain HTML fed by the JSON feeds under `/api/` (see below).
+Next to `/metrics` the exporter serves three pages: `/map`, a live satellite
+map; `/table`, the focus pass plan plus tables of satellites, passes, bodies and
+stars; and `/forecast`, a day-by-day outlook for receiving the focus satellites.
+All are plain HTML fed by the JSON feeds under `/api/` (see below).
 
 ## /map
 
@@ -25,6 +26,38 @@ From the top: the focus **pass plan** (every pass in the lookahead window, see
 [focus satellites](collectors/satellites.md#focus-satellites)), solar-system
 bodies, the satellite filters, **satellites over the observer**, **upcoming
 passes** and bright stars.
+
+## /forecast
+
+A day-by-day outlook for the [focus satellites](collectors/satellites.md#focus-satellites)
+over the next `forecast_days` (30), for planning when to receive them. Each day is
+rated **good**, **fair** or **poor** from its passes and the expected space weather.
+
+- **Calendar**: one square per day, Monday first, coloured by rating and showing
+  the day's highest pass. Click a day to jump to it.
+- **Day list**: every pass that peaks at `sat_focus_min_elevation_deg` (30°) or
+  higher, with AOS–LOS in your local time, the peak elevation, ☀ when the Sun is
+  up at the observer at the peak (☾ when it is down) and the direction. Passes at
+  `forecast_top_elevation_deg` (60°) or higher are in gold. Hover a pass for its
+  peak time, duration and downlinks.
+- **Space weather**: NOAA SWPC's geomagnetic outlook for the day, as the largest
+  Kp. It comes from the 3-day Kp forecast for the next days, then from the weekly
+  27-day outlook, which also gives the planetary A index and the 10.7 cm solar
+  radio flux.
+- **Best days**: the four good days with the highest passes.
+- **☀ daylight passes only** (`/forecast?day=1`): rates and lists only daylight
+  passes, for visible-light pictures.
+
+| Rating | When |
+|---|---|
+| **good** | a pass peaks at 60° or higher and Kp stays at 3 or below (quiet) |
+| **fair** | the best pass peaks between 30° and 60°, or Kp is 4 (active) |
+| **poor** | no pass reaches 30°, or a geomagnetic storm: Kp 5 or more (G1 and up; a 3-day forecast value of 4.67 counts as 5) |
+
+The day's rating is the worse of the two. A day past the end of NOAA's outlook is
+rated on its passes alone. Days follow your browser's time zone, while NOAA's
+values are per UTC day. Pass times come from the current orbital elements; weeks
+ahead they can shift by a minute or so.
 
 ## Satellite filters
 
@@ -108,4 +141,5 @@ For example:
 | `/api/tracks.json` | `{tracks: [{norad, name, group, alt, track: [[lat, lon], …], focus?}]}` |
 | `/api/passes.json` | `{passes: [{norad, name, group, aos, los, max_elev, duration_s, footprint_km, up_now, focus}]}`, the next pass of each satellite |
 | `/api/focus.json` | the focus pass plan (see [focus satellites](collectors/satellites.md#focus-satellites)) |
+| `/api/forecast.json` | the `/forecast` data: `{days, good_elevation, top_elevation, outlook_issued, satellites: [{norad, name, group, tle_epoch, downlinks}], passes: [{norad, aos, tca, los, max_elev, aos_az, los_az, duration_s, daylight}], space_weather: [{date, kp, level, kp_source, ap?, f107?}]}`. `passes` holds every focus pass over `forecast_days` that peaks at `sat_focus_min_elevation_deg` or higher; `space_weather` has one entry per UTC day, `level` is `quiet`, `active` or `G1 storm` … `G5 storm`, and `kp_source` is `kp_forecast` or `outlook_27d`. |
 | `/api/bodies.json`, `/api/stars.json` | the bodies and bright-star tables |

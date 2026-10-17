@@ -36,7 +36,9 @@ curl -s localhost:9110/metrics | grep -E '^(body_|star_|satellite_|space_weather
 Open `http://localhost:9110/` for a status page. Endpoints: `/` (info,
 `?format=json` for JSON), `/metrics` (Prometheus), `/status` (JSON), `/health`
 + `/healthz`, `/map` (live satellite map), `/table` (focus pass plan, satellites,
-passes, bodies, stars) and their JSON feeds `/api/{satellites,tracks,passes,focus,bodies,stars}.json`.
+passes, bodies, stars), `/forecast` (day-by-day outlook for the focus satellites:
+good passes + NOAA's geomagnetic forecast, each day rated good / fair / poor) and
+their JSON feeds `/api/{satellites,tracks,passes,focus,forecast,bodies,stars}.json`.
 Both pages share satellite filters (group or single satellite, orbit, altitude,
 radio band + mode, visibility / next pass) that live in the URL, e.g.
 `/map?band=137&mode=LRPT`; see [docs/web.md](docs/web.md).
