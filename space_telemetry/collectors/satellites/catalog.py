@@ -27,6 +27,16 @@ def build_catalog(cache, settings, ts) -> Catalog:
                 sats[norad] = sat
             sat.groups.add(group)
 
+    # Watchlist/focus ids fetched by catalog number: only those no group brought in
+    # (they join no group, so the map/legend shows them as "other").
+    for norad in set(settings.sat_watchlist) | set(settings.sat_focus):
+        if norad in sats:
+            continue
+        raw = cache.read(celestrak.catnr_filename(norad, fmt))
+        for n, name, earthsat in (celestrak.parse(raw, fmt, ts) if raw else ()):
+            if n == norad:
+                sats[norad] = Satellite(norad_id=norad, name=name, earthsat=earthsat)
+
     meta_raw = cache.read("satnogs_satellites.json")
     metadata = satnogs.parse_satellites(meta_raw) if meta_raw else {}
     tx_raw = cache.read("satnogs_transmitters.json")

@@ -18,6 +18,33 @@ from .model import CatalogHolder, SatelliteState
 
 _C = 299_792_458.0  # speed of light, m/s
 _R_EARTH_KM = 6371.0  # mean Earth radius
+_MU_KM3_S2 = 398_600.4418  # Earth's gravitational parameter
+
+
+def orbit_class(earthsat) -> str:
+    """LEO / MEO / GEO / HEO from the element set, for the /map + /table orbit filter.
+    GEO is ~1 rev/day and near-circular; HEO is highly elliptical (Molniya/Tundra,
+    e ≥ 0.25) or beyond GEO; LEO keeps its apogee under 2,000 km; MEO is the rest."""
+    m = earthsat.model
+    rev_per_day = m.no_kozai * 1440.0 / (2.0 * math.pi)  # no_kozai is rad/min
+    if 0.9 <= rev_per_day <= 1.1 and m.ecco < 0.1:
+        return "GEO"
+    if m.ecco >= 0.25 or rev_per_day < 0.9:
+        return "HEO"
+    n = m.no_kozai / 60.0  # rad/s
+    a_km = (_MU_KM3_S2 / (n * n)) ** (1.0 / 3.0)
+    return "LEO" if a_km * (1.0 + m.ecco) - _R_EARTH_KM < 2000.0 else "MEO"
+
+
+def active_downlinks(transmitters) -> list:
+    """Distinct active downlinks as ``[mhz, mode]`` pairs, lowest first, for the band and
+    mode filters. The mode is the first word of SatNOGS's (``BPSK PMT-A3`` → ``BPSK``)."""
+    out = set()
+    for tx in transmitters:
+        if tx.downlink_hz and tx.status == "active":
+            mode = ((tx.mode or "").split() or [""])[0].upper()
+            out.add((round(tx.downlink_hz / 1e6, 3), mode))
+    return [list(x) for x in sorted(out)]
 
 
 def footprint_radius_km(altitude_m: float, mask_deg: float = 0.0) -> float:
@@ -117,8 +144,41 @@ def next_pass(earthsat, topos, ts, t0, hours, mask_deg):
     )
 
 
+def passes_between(earthsat, topos, ts, t0, hours, mask_deg, margin_min=30.0):
+    """Every pass that is under way at *t0* or rises within *hours* of it, oldest
+    first: ``[{aos, tca, los, max_elev, aos_az, los_az}]`` in UNIX seconds / degrees.
+    The search runs *margin_min* wider on both ends, so a pass in progress keeps its
+    real AOS and the last one its LOS (LEO passes last well under 30 minutes)."""
+    m = margin_min / 1440.0
+    times, events = earthsat.find_events(topos, ts.tt_jd(t0.tt - m),
+                                         ts.tt_jd(t0.tt + hours / 24.0 + m),
+                                         altitude_degrees=mask_deg)
+    diff = earthsat - topos
+    now = t0.utc_datetime().timestamp()
+    out, aos, tca, best = [], None, None, None
+    for t, event in zip(times, events):
+        if event == 0:                          # rise
+            aos, tca, best = t, None, None
+        elif event == 1 and aos is not None:    # culminate (keep the highest)
+            el = float(diff.at(t).altaz()[0].degrees)
+            if best is None or el > best:
+                tca, best = t, el
+        elif event == 2 and aos is not None:    # set
+            aos_s, los_s = aos.utc_datetime().timestamp(), t.utc_datetime().timestamp()
+            if los_s > now and aos_s <= now + hours * 3600.0:
+                out.append({
+                    "aos": aos_s, "los": los_s,
+                    "tca": tca.utc_datetime().timestamp() if tca is not None else None,
+                    "max_elev": best,
+                    "aos_az": float(diff.at(aos).altaz()[1].degrees),
+                    "los_az": float(diff.at(t).altaz()[1].degrees),
+                })
+            aos = None
+    return out
+
+
 class SatelliteProvider:
-    """Produces ``SatelliteState`` for the tracked set (watchlist ∪ selected groups)."""
+    """Produces ``SatelliteState`` for the tracked set (watchlist ∪ focus ∪ selected groups)."""
 
     def __init__(self, holder: CatalogHolder, observer, eph, ts, settings):
         self.holder = holder
@@ -128,13 +188,45 @@ class SatelliteProvider:
         self.settings = settings
         self._topos = observer.topos()
         self._pass_cache: dict[int, tuple[float, tuple]] = {}
+        self._plan_cache: dict[int, tuple[float, object, list]] = {}
 
     def _tracked(self, catalog):
         groups = set(self.settings.sat_groups)
-        watch = set(self.settings.sat_watchlist)
+        watch = set(self.settings.sat_watchlist) | set(self.settings.sat_focus)
         for sat in catalog.satellites.values():
             if sat.norad_id in watch or (sat.groups & groups):
                 yield sat
+
+    def focus_plan(self):
+        """``[(sat, passes)]`` for the focus satellites in the catalog, in sat_focus
+        order: every pass over pass_lookahead_hours (see passes_between). Cached per
+        satellite for sat_pass_cache_ttl_s, and recomputed when new elements land."""
+        catalog = self.holder.get()
+        t = self.ts.now()
+        now = monotonic()
+        out = []
+        for norad in self.settings.sat_focus:
+            sat = catalog.satellites.get(norad)
+            if sat is None:
+                continue
+            cached = self._plan_cache.get(norad)
+            if (cached is None or cached[1] is not sat
+                    or now - cached[0] >= self.settings.sat_pass_cache_ttl_s):
+                try:
+                    passes = passes_between(sat.earthsat, self._topos, self.ts, t,
+                                            self.settings.pass_lookahead_hours,
+                                            self.settings.min_elevation_deg)
+                except Exception:
+                    passes = []
+                cached = (now, sat, passes)
+                self._plan_cache[norad] = cached
+            out.append((sat, cached[2]))
+        return out
+
+    def look_angles(self, sat):
+        """``(elevation_deg, azimuth_deg)`` of *sat* from this observer, now."""
+        alt, az, _ = (sat.earthsat - self._topos).at(self.ts.now()).altaz()
+        return float(alt.degrees), float(az.degrees)
 
     def _pass(self, sat, t):
         cached = self._pass_cache.get(sat.norad_id)
@@ -222,7 +314,8 @@ class SatelliteProvider:
         elevation, sunlit, group and footprint radius, with NO pass prediction — states()
         runs find_events (seconds, cold) which the map does not need. ``offset_min`` shifts
         the evaluation time from now (the /map time scrubber, ±1 day). Keeps /map cheap on
-        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit, footprint_km}]."""
+        every scrape. [{norad, name, group, lat, lon, alt_m, elevation, sunlit, footprint_km,
+        orbit, tx}] — orbit and tx (active downlinks) feed the /map + /table filters."""
         catalog = self.holder.get()
         t = self.ts.tt_jd(self.ts.now().tt + offset_min / 1440.0) if offset_min else self.ts.now()
         out = []
@@ -237,6 +330,8 @@ class SatelliteProvider:
                 "alt_m": geo["altitude_m"], "elevation": geo["elevation_deg"],
                 "sunlit": geo["sunlit"],
                 "footprint_km": footprint_radius_km(geo["altitude_m"], self.settings.min_elevation_deg),
+                "orbit": orbit_class(sat.earthsat),
+                "tx": active_downlinks(sat.transmitters),
             })
         return out
 

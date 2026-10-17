@@ -99,6 +99,10 @@ local satmap = import 'satmap.libsonnet';
           { alert: 'SpaceTelemetryTLEStale', expr: 'quantile(0.5, satellite_tle_age_seconds{' + cfg.exporterSelector + '}) > ' + cfg.tleStaleSeconds, 'for': '1h', labels: { severity: 'warning' }, annotations: { summary: 'Satellite TLEs are stale.', description: 'Half of the element sets are over ' + cfg.tleStaleSeconds + 's old; the updater may be stuck.' } },
           { alert: 'GeomagneticStorm', expr: 'space_weather_planetary_k_index{' + cfg.exporterSelector + '} >= 5', 'for': '0m', labels: { severity: 'info' }, annotations: { summary: 'Geomagnetic storm in progress (Kp {{ $value }}).', description: 'The planetary K-index has reached storm level (>= 5).' } },
           { alert: 'SolarFlareMClass', expr: 'space_weather_goes_xray_flux_watts_per_m2{' + cfg.exporterSelector + '} >= 1e-5', 'for': '0m', labels: { severity: 'info' }, annotations: { summary: 'M-class (or stronger) solar flare.', description: 'GOES long-band X-ray flux has reached >= 1e-5 W/m^2.' } },
+          // A focus satellite (exporter sat_focus) rises within focusPassLeadMinutes on a pass
+          // peaking at or above sat_focus_min_elevation_deg; $value = that peak elevation.
+          // Resolves at AOS (the AOS is then in the past).
+          { alert: 'SatelliteFocusGoodPass', expr: 'satellite_focus_next_good_pass_max_elevation_degrees{' + cfg.exporterSelector + '} and on (norad, observer) (satellite_focus_next_good_pass_aos_timestamp_seconds{' + cfg.exporterSelector + '} - time() <= ' + (cfg.focusPassLeadMinutes * 60) + ' > 0)', 'for': '0m', labels: { severity: 'info' }, annotations: { summary: '{{ $labels.name }} rises over {{ $labels.observer }} within ' + cfg.focusPassLeadMinutes + ' min, peaking at {{ printf "%.0f" $value }}°.', description: 'Good pass of focus satellite {{ $labels.name }} (NORAD {{ $labels.norad }}): AOS within ' + cfg.focusPassLeadMinutes + ' minutes, max elevation {{ printf "%.0f" $value }}°. Pass plan: /table on the exporter.' } },
         ],
       },
     ];

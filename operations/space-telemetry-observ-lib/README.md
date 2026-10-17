@@ -9,7 +9,7 @@ Grafana dashboard plus Prometheus alerts and recording rules for the exporter's
 | Path | Contents |
 | --- | --- |
 | `dashboards/space-telemetry-{weather,satellites,bodies}.json` | Grafana dashboards (schema v2), filed under *Workloads / Sky monitoring* |
-| `alerts/space-telemetry.yaml` | `SpaceTelemetryExporterDown`, `SpaceTelemetryExporterAbsent`, `SpaceTelemetrySourceFailing`, `SpaceTelemetryTLEStale`, `GeomagneticStorm`, `SolarFlareMClass` |
+| `alerts/space-telemetry.yaml` | `SpaceTelemetryExporterDown`, `SpaceTelemetryExporterAbsent`, `SpaceTelemetrySourceFailing`, `SpaceTelemetryTLEStale`, `GeomagneticStorm`, `SolarFlareMClass`, `SatelliteFocusGoodPass` (a focus satellite's good pass is `focusPassLeadMinutes` away) |
 | `rules/space-telemetry-recording.yaml` | `observer:body_above_horizon:sum`, `job:satellite_tracked_count:sum` |
 
 ## Rebuild

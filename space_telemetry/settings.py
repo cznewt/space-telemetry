@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     sat_enabled: bool = True
     sat_groups: Annotated[list[str], NoDecode] = ["stations"]
     sat_watchlist: Annotated[list[int], NoDecode] = []
+    # Focus satellites (NORAD ids): always tracked, highlighted on /map + /table, and
+    # given a full pass plan over pass_lookahead_hours (/api/focus.json). A pass
+    # peaking at or above sat_focus_min_elevation_deg is a "good" pass (★, metrics, alert).
+    sat_focus: Annotated[list[int], NoDecode] = []
+    sat_focus_min_elevation_deg: float = 30.0
     celestrak_format: str = "tle"            # "tle" or "json" (OMM)
     tle_refresh_hours: float = 8.0
     transmitter_refresh_hours: float = 168.0
@@ -120,7 +125,7 @@ class Settings(BaseSettings):
             return [x.strip().lower() for x in value.split(",") if x.strip()]
         return value
 
-    @field_validator("sat_watchlist", "sat_track_offsets_minutes", mode="before")
+    @field_validator("sat_watchlist", "sat_focus", "sat_track_offsets_minutes", mode="before")
     @classmethod
     def _split_int_list(cls, value):
         if isinstance(value, str):

@@ -53,3 +53,16 @@ groups:
     for: 0m
     labels:
       severity: info
+  - alert: SatelliteFocusGoodPass
+    annotations:
+      description: "Good pass of focus satellite {{ $labels.name }} (NORAD {{ $labels.norad\
+        \ }}): AOS within 15 minutes, max elevation {{ printf \"%.0f\" $value }}\xB0\
+        . Pass plan: /table on the exporter."
+      summary: "{{ $labels.name }} rises over {{ $labels.observer }} within 15 min,\
+        \ peaking at {{ printf \"%.0f\" $value }}\xB0."
+    expr: satellite_focus_next_good_pass_max_elevation_degrees{job="space-telemetry"}
+      and on (norad, observer) (satellite_focus_next_good_pass_aos_timestamp_seconds{job="space-telemetry"}
+      - time() <= 900 > 0)
+    for: 0m
+    labels:
+      severity: info
